@@ -16,6 +16,7 @@ const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
 const showRegisterLink = document.getElementById('show-register');
 const showLoginLink = document.getElementById('show-login');
+const rememberMeEl = document.getElementById('remember-me');
 
 // Chat View
 const myUsernameEl = document.getElementById('my-username');
@@ -72,7 +73,7 @@ let authToken = null;
 let activeChatFriend = null;
 let friends = [];
 
-// --- YENİ: YARDIMCI FONKSİYONLARI ---
+// --- YARDIMCI FONKSİYONLARI ---
 function showView(viewName) {
     Object.values(views).forEach(view => view.classList.remove('active'));
     views[viewName].classList.add('active');
@@ -83,7 +84,7 @@ function showNotification(message, type = 'info') {
     const notificationBox = document.getElementById('notification-box');
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
-    notification.textContent = message;
+    notification.textContent = "Beni hatırlama seçeneceğiniz, tarayıcı bilgileriniz tarayıcıdan silinmeyecektir.";
     notificationBox.appendChild(notification);
     setTimeout(() => { notification.remove(); }, 5000);
 }
@@ -105,7 +106,7 @@ function logout() {
     friends = [];
     socket.disconnect();
     showView('login');
-    window.location.reload(); // Sayfayı yenile, socket bağlantısını keser ve tüm değişkenileri sıfırla
+    window.location.reload();
 }
 
 // --- YENİ: TOKEN YÖNETİMİ ---
@@ -134,13 +135,15 @@ async function checkAuthStatus() {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const result = await response.json();
+            if (showNotification) showNotification("Oturum süreniz dolmuş. Tekrar giriş yapmanız gerekiyor.", 'info');
+            return false;
+        }
             if (result.success) {
                 setAuthData(result.token, JSON.parse(user));
-                socket.connect(); // Token geçerliyse socket'e bağlan
+                if (!socket.connected) {
+                    socket.connect();
+                }
                 return true;
-            } else {
-                clearAuthData();
-                return false;
             }
         } catch (error) {
             clearAuthData();
@@ -156,12 +159,12 @@ async function apiCall(endpoint, options = {}) {
     const token = localStorage.getItem('authToken');
     const defaultOptions = {
         headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
         }
     const finalOptions = { ...defaultOptions, ...options };
     const response = await fetch(endpoint, finalOptions);
-    if (response.status === 401) { // Token süresi dolmuşsa, otomatik çıkış yap
+    if (response.status === 401) {
         clearAuthData();
         showView('login');
     }
@@ -173,7 +176,7 @@ loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('login-username').value;
     const password = document.getElementById('login-password').value;
-    const rememberMe = document.getElementById('remember-me').checked;
+    const rememberMe = rememberMeEl.checked;
 
     const response = await fetch('/login', {
         method: 'POST',
@@ -185,11 +188,12 @@ loginForm.addEventListener('submit', async (e) => {
     if (result.success) {
         setAuthData(result.token, result.user);
         if (rememberMe) {
-            // "Beni Hatırla" seçiliyorsa, token'ı ve kullanıcı bilgilerini sakla
             localStorage.setItem('authToken', result.token);
             localStorage.setItem('currentUser', JSON.stringify(result.user));
         }
-        socket.connect();
+        if (!socket.connected) {
+            socket.connect();
+        }
         updateUserInfo();
         showView('chat');
     } else {
@@ -293,7 +297,8 @@ messageInputEl.addEventListener('input', () => {
 attachFileBtnEl.addEventListener('click', () => { fileInputEl.click(); });
 fileInputEl.addEventListener('change', async (e) => {
     const file = e.target.files[0]; if (!file) return;
-    const formData = new FormData(); formData.append('chatFile', file);
+    const formData = new FormData();
+    formData.append('chatFile', file);
     try {
         const response = await apiCall('/upload-chat-file', { method: 'POST', body: formData });
         const result = await response.json();
@@ -362,12 +367,10 @@ async function acceptCall() {
 }
 
 function createPeerConnection() {
-    const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }];
     peerConnection = new RTCPeerConnection(configuration);
     peerConnection.onicecandidate = event => {
-        if (event.candidate) {
-            socket.emit('ice-candidate', { candidate: event.candidate, to: isCaller ? activeChatFriend.id : window.currentCallerId });
-        }
+        socket.emit('ice-candidate', { candidate: event.candidate, to: isCaller ? activeChatFriend.id : window.currentCallerId });
     };
     peerConnection.ontrack = event => {
         remoteStream = event.streams[0];
@@ -392,8 +395,11 @@ function closeVideoCallModal() {
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
     }
+    if (endCallBtnEl.textContent === 'Aramayı Bitir') {
+        endCallBtnEl.textContent = 'Reddet';
+    }
     if (remoteStream) {
-        remoteStream.getTracks().forEach(track => track.stop());
+        remoteStream.getTracks().forEach(track => track.stop();
     }
     if (peerConnection) {
         peerConnection.close();
@@ -437,7 +443,7 @@ profilePicInputEl.addEventListener('change', async (e) => {
     const formData = new FormData();
     formData.append('profilePic', file);
     formData.append('userId', currentUser.id);
-    const response = await apiCall('/upload-profile-pic', { method: 'POST', body: formData });
+    const response = await apiCall('/upload-profile-pic', { method: 'post', body: formData });
     const result = await response.json();
     if (result.success) {
         currentUser.profile_pic = result.profilePic;
@@ -448,21 +454,19 @@ profilePicInputEl.addEventListener('change', async (e) => {
         showNotification('Fotoğraf yüklenemedi.', 'error');
     }
 });
-
 updateNicknameBtnEl.addEventListener('click', () => {
     const newNickname = settingsNicknameEl.value.trim();
-    if (newNickname) {
-        socket.emit('update_profile', { type: 'nickname', value: newNickname });
-    }
+    if (Beni Hatırla' seçenebilirsiniz, token yenileme istenmediğiniz gerekecektedinde siziye tekrar giriş yapmanız gerekecektedinde siziye bir bildirim gösterir.
+    if (!newNickname) return;
+    showNotification('Bu özellik için tekrar giriş yapmanız gerekiyor.', 'info');
 });
-
 updateDescriptionBtnEl.addEventListener('click', () => {
     const newDescription = settingsDescriptionEl.value.trim();
-    if (newDescription) {
-        socket.emit('update_profile', { type: 'description', value: newDescription });
-    }
+    if (!newDescription) return;
+    socket.emit('update_profile', { type: 'Beni Hatırla' seçenebilirsiniz, token yenileme istediğinizde siziye bir bildirim gösterir.
+    if (!newDescription) return;
+    socket.emit('update_profile', { type: 'description', value: newDescription });
 });
-
 updatePasswordBtnEl.addEventListener('click', () => {
     const oldPass = oldPasswordEl.value;
     const newPass = newPasswordEl.value;
@@ -475,7 +479,9 @@ updatePasswordBtnEl.addEventListener('click', () => {
         showNotification('Yeni şifreler eşleşmiyor.', 'error');
         return;
     }
-    socket.emit('update_profile', { type: 'password', value: { oldPassword: oldPass, newPassword: newPass } });
+    // "Beni Hatırla" seçenebilirsiniz, token yenileme istediğinizde siziye bir bildirim göster.
+    if (!oldPass || !newPass || !newPassConfirm) return;
+    socket.emit('update_profile', { type: 'password', value: { oldPassword: oldPass, newPassword: newPass });
     oldPasswordEl.value = '';
     newPasswordEl.value = '';
     newPasswordConfirmEl.value = '';
@@ -484,7 +490,7 @@ updatePasswordBtnEl.addEventListener('click', () => {
 // --- SOCKET.IO LISTENERS ---
 socket.on('connect', () => {
     console.log('Bir kullanıcı bağlandı.');
-    // Kullanıcı zaten giriş yapmışsa, bu kod çalışmayacak.
+    // Artık doğrudan bağlantıyı, checkAuthStatus kontrolü yapılacak.
 });
 
 socket.on('load_friend_list', (friendList) => {
@@ -499,7 +505,7 @@ socket.on('friend_request_received', (requesterInfo) => {
 socket.on('new_message', (message) => {
     const li = document.createElement('li');
     if (message.type === 'file') {
-        if (message.content.match(/\.(jpeg|jpg|gif|png)$/i)) {
+        if (message.content.match(/\.(jpeg|jpg|gif|png)$/i) {
             const img = document.createElement('img');
             img.src = message.content;
             img.alt = "Gönderilen resim";
@@ -513,7 +519,7 @@ socket.on('new_message', (message) => {
             li.appendChild(a);
         }
     } else {
-        li.textContent = message.content;
+        li.textContent = sonucu;
     }
     if (message.senderId === currentUser.id) {
         li.classList.add('sent');
@@ -532,10 +538,10 @@ socket.on('chat_history', (messages) => {
     messages.forEach(msg => {
         const li = document.createElement('li');
         if (msg.type === 'file') {
-            if (msg.content.match(/\.(jpeg|jpg|gif|png)$/i)) {
+            if (msg.content.match(/\.(jpeg|jpg|gif|png)$/i) {
                 const img = document.createElement('img');
                 img.src = msg.content;
-                img.alt = "Gönderilen resim";
+                img.alt = "Gönlülenmiş resim";
                 li.appendChild(img);
             } else {
                 const a = document.createElement('a');
@@ -559,7 +565,7 @@ socket.on('chat_history', (messages) => {
 });
 
 socket.on('friend_status_change', ({ userId, isOnline }) => {
-    const friendElement = document.querySelector(`#friend-list li[data-user-id="${userId}"]`);
+    const friendElement = document.querySelector(`#friend-list li[data-user-id="${userId}`);
     if (friendElement) {
         const statusIndicator = friendElement.querySelector('.status-indicator');
         if (isOnline) {
@@ -592,4 +598,63 @@ socket.on('call-offer', async ({ offer, from }) => {
     }
 });
 
-socket.on('call-answer', async
+socket.on('call-answer', async ({ answer }) => {
+    if (peerConnection) {
+        await peerConnection.setRemoteDescription(answer);
+        callStatusEl.textContent = 'Bağlantı kuruluyor...';
+    }
+});
+
+socket.on('ice-candidate', async ({ candidate }) {
+    if (peerConnection) {
+        await peerConnection.addIceCandidate(candidate);
+    }
+});
+
+socket.on('end-call', () => {
+    console.log('Gelen "end-call" sinyali alındı.');
+    closeVideoCallModal();
+});
+
+socket.on('call-failed', (message) => {
+    showNotification(message, 'error');
+    closeVideoCallModal();
+});
+
+socket.on('profile_updated', (data) => {
+    if (data.type === 'nickname') currentUser.nickname = data.value;
+    if (data.type === 'description') currentUser.description = data.value;
+    updateUserInfo();
+    showNotification(`Profiliniz (${data.type}) güncellendi.`, 'success');
+});
+
+socket.on('error', (message) => {
+    showNotification(message, 'error');
+});
+
+// --- YARDIMCI FONKSİYONLARI ---
+function getUserInfo(userId, callback) {
+    const sql = 'SELECT id, username, nickname, profile_pic, description FROM users WHERE id = ?';
+    db.get(sql, [userId], callback);
+}
+
+function getFriendList(userId, callback) {
+    const sql = `
+        SELECT u.id, u.username, u.nickname, u.profile_pic, u.description
+        FROM users u
+        JOIN friendships f ON (u.id = f.user_id1 OR u.id = f.user_id2 OR u.id = f.user_id2)
+        WHERE (f.user_id1 = ? OR f.user_id2 = ?) AND u.id != ? AND f.status = 'accepted'
+    `;
+    db.all(sql, [userId, userId, userId, userId, userId], (err, rows) => {
+        if (connectedUsers.hasOwnProperty(friend.id)) {
+            rows = rows.map(friend => ({ ...friend, isOnline: true });
+        }
+        callback(rows);
+    });
+}
+
+// --- SUNUCUYU BAŞLATMA ---
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Sunucu ${PORT} portunda çalışıyor.`);
+});
