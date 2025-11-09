@@ -163,6 +163,7 @@ function renderFriendList(friendList) {
     });
 }
 
+// --- GÜNCELELLENMİŞ startChat FONKSİYONU ---
 function startChat(friend) {
     activeChatFriend = friend;
     activeChatNameEl.textContent = `${friend.nickname || friend.username} ile sohbet`;
@@ -172,7 +173,10 @@ function startChat(friend) {
     document.querySelectorAll('#friend-list li').forEach(item => item.classList.remove('active'));
     event.currentTarget.classList.add('active');
 
-    messagesEl.innerHTML = ''; 
+    messagesEl.innerHTML = ''; // Önceki sohbeti temizle
+
+    // Sunucudan bu arkadaşla olan mesaj geçmişini iste
+    socket.emit('request_chat_history', { friendId: friend.id });
 }
 
 sendMessageBtnEl.addEventListener('click', sendMessage);
@@ -294,6 +298,29 @@ socket.on('new_message', (message) => {
     }
     messagesEl.appendChild(li);
     messagesEl.scrollTop = messagesEl.scrollHeight;
+});
+
+// --- YENİ ÖZELLİK: Mesaj Geçmişi Dinleyicisi ---
+socket.on('chat_history', (messages) => {
+    messagesEl.innerHTML = ''; // Ekranı temizle
+    if (messages.length === 0) {
+        // Eğer geçmişte mesaj yoksa bir mesaj gösterebiliriz (isteğe bağlı)
+        // messagesEl.innerHTML = '<li class="no-messages">Bu sohbette henüz mesaj yok.</li>';
+        return;
+    }
+    
+    messages.forEach(msg => {
+        const li = document.createElement('li');
+        li.textContent = msg.content;
+        if (msg.senderId === currentUser.id) {
+            li.classList.add('sent');
+        } else {
+            li.classList.add('received');
+        }
+        messagesEl.appendChild(li);
+    });
+    // En sona otomatik scroll et
+    messagesEl.scrollTop = messagesEl.scrollHeight; 
 });
 
 socket.on('new_status_update', (statusData) => {
