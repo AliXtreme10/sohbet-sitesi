@@ -28,6 +28,7 @@ const messageInputEl = document.getElementById('message-input');
 const sendMessageBtnEl = document.getElementById('send-message-btn');
 const addFriendBtnEl = document.getElementById('add-friend-btn');
 const profileSettingsBtnEl = document.getElementById('profile-settings-btn');
+const logoutBtnEl = document.getElementById('logout-btn');
 
 // Yazıyor Göstergesi Elementleri
 const typingIndicatorEl = document.getElementById('typing-indicator');
@@ -37,7 +38,7 @@ let typingTimer;
 const attachFileBtnEl = document.getElementById('attach-file-btn');
 const fileInputEl = document.getElementById('file-input');
 
-// --- YENİ: Video Arama Elementleri ---
+// Video Arama Elementleri
 const videoCallBtnEl = document.getElementById('video-call-btn');
 const videoCallModal = document.getElementById('video-call-modal');
 const localVideoEl = document.getElementById('local-video');
@@ -67,16 +68,11 @@ const modalCloseBtn = document.querySelector('.close-btn');
 
 // --- GLOBAL STATE ---
 let currentUser = null;
+let authToken = null;
 let activeChatFriend = null;
 let friends = [];
 
-// --- YENİ: Video Arama Değişkenleri ---
-let localStream = null;
-let remoteStream = null;
-let peerConnection = null;
-let isCaller = false;
-
-// --- VIEW MANAGEMENT ---
+// --- YENİ: YARDIMCI FONKSİYONLARI ---
 function showView(viewName) {
     Object.values(views).forEach(view => view.classList.remove('active'));
     views[viewName].classList.add('active');
@@ -97,33 +93,144 @@ showRegisterLink.addEventListener('click', (e) => { e.preventDefault(); showView
 showLoginLink.addEventListener('click', (e) => { e.preventDefault(); showView('login'); });
 profileSettingsBtnEl.addEventListener('click', () => { loadProfileSettings(); showView('profileSettings'); });
 backToChatBtnEl.addEventListener('click', () => { showView('chat'); });
+logoutBtnEl.addEventListener('click', logout);
+
+// --- YENİ: OTOMATİK GİRİŞİ ---
+function logout() {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('currentUser');
+    authToken = null;
+    currentUser = null;
+    activeChatFriend = null;
+    friends = [];
+    socket.disconnect();
+    showView('login');
+    window.location.reload(); // Sayfayı yenile, socket bağlantısını keser ve tüm değişkenileri sıfırla
+}
+
+// --- YENİ: TOKEN YÖNETİMİ ---
+function setAuthData(token, user) {
+    localStorage.setItem('authToken', token);
+    localStorage.setItem('currentUser', JSON.stringify(user));
+    authToken = token;
+    currentUser = user;
+}
+
+function clearAuthData() {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('currentUser');
+    authToken = null;
+    currentUser = null;
+}
+
+// --- YENİ: OTOMATİK GİRİŞİ ---
+async function checkAuthStatus() {
+    const token = localStorage.getItem('authToken');
+    const user = localStorage.getItem('currentUser');
+    if (token && user) {
+        try {
+            const response = await fetch('/refresh-token', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await response.json();
+            if (result.success) {
+                setAuthData(result.token, JSON.parse(user));
+                socket.connect(); // Token geçerliyse socket'e bağlan
+                return true;
+            } else {
+                clearAuthData();
+                return false;
+            }
+        } catch (error) {
+            clearAuthData();
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+
+// --- YENİ: FETCH İŞLEMLERİ ---
+async function apiCall(endpoint, options = {}) {
+    const token = localStorage.getItem('authToken');
+    const defaultOptions = {
+        headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+        }
+    const finalOptions = { ...defaultOptions, ...options };
+    const response = await fetch(endpoint, finalOptions);
+    if (response.status === 401) { // Token süresi dolmuşsa, otomatik çıkış yap
+        clearAuthData();
+        showView('login');
+    }
+    return response.json();
+}
 
 // --- AUTHENTICATION LOGIC ---
 loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('login-username').value;
     const password = document.getElementById('login-password').value;
-    const response = await fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+    const rememberMe = document.getElementById('remember-me').checked;
+
+    const response = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+    });
     const result = await response.json();
-    if (result.success) { currentUser = result.user; socket.emit('user_login', currentUser.id); updateUserInfo(); showView('chat'); } else { showNotification(result.message, 'error'); }
+
+    if (result.success) {
+        setAuthData(result.token, result.user);
+        if (rememberMe) {
+            // "Beni Hatırla" seçiliyorsa, token'ı ve kullanıcı bilgilerini sakla
+            localStorage.setItem('authToken', result.token);
+            localStorage.setItem('currentUser', JSON.stringify(result.user));
+        }
+        socket.connect();
+        updateUserInfo();
+        showView('chat');
+    } else {
+        showNotification(result.message, 'error');
+    }
 });
+
 registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('register-username').value;
     const nickname = document.getElementById('register-nickname').value;
     const password = document.getElementById('register-password').value;
     const passwordConfirm = document.getElementById('register-password-confirm').value;
-    if (password !== passwordConfirm) { showNotification('Şifreler eşleşmiyor!', 'error'); return; }
-    const response = await fetch('/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, nickname, password }) });
+
+    if (password !== passwordConfirm) {
+        showNotification('Şifreler eşleşmiyor!', 'error');
+        return;
+    }
+
+    const response = await fetch('/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, nickname, password })
+    });
     const result = await response.json();
-    if (result.success) { showNotification(result.message, 'success'); showView('login'); } else { showNotification(result.message, 'error'); }
+
+    if (result.success) {
+        showNotification(result.message, 'success');
+        showView('login');
+    } else {
+        showNotification(result.message, 'error');
+    }
 });
 
 // --- CHAT LOGIC ---
 function updateUserInfo() {
-    myUsernameEl.textContent = currentUser.username;
-    myNicknameEl.textContent = currentUser.nickname || currentUser.username;
-    myProfilePicEl.src = currentUser.profile_pic || '/default.png';
+    if (currentUser) {
+        myUsernameEl.textContent = currentUser.username;
+        myNicknameEl.textContent = currentUser.nickname || currentUser.username;
+        myProfilePicEl.src = currentUser.profile_pic || '/default.png';
+    }
 }
 
 function renderFriendList(friendList) {
@@ -134,7 +241,9 @@ function renderFriendList(friendList) {
         li.dataset.userId = friend.id;
         const statusIndicator = document.createElement('span');
         statusIndicator.className = 'status-indicator';
-        if (friend.isOnline) statusIndicator.classList.add('online');
+        if (friend.isOnline) {
+            statusIndicator.classList.add('online');
+        }
         li.innerHTML = `<img src="${friend.profile_pic || '/default.png'}" alt="${friend.nickname}"><span>${friend.nickname || friend.username}</span>`;
         li.prepend(statusIndicator);
         li.addEventListener('click', () => startChat(friend));
@@ -147,7 +256,7 @@ function startChat(friend) {
     activeChatNameEl.textContent = `${friend.nickname || friend.username} ile sohbet`;
     messageInputEl.disabled = false;
     sendMessageBtnEl.disabled = false;
-    videoCallBtnEl.disabled = false; // Arama butonunu aktif et
+    videoCallBtnEl.disabled = false;
     document.querySelectorAll('#friend-list li').forEach(item => item.classList.remove('active'));
     event.currentTarget.classList.add('active');
     messagesEl.innerHTML = '';
@@ -156,12 +265,18 @@ function startChat(friend) {
 }
 
 sendMessageBtnEl.addEventListener('click', sendMessage);
-messageInputEl.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
+messageInputEl.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage();
+});
 
 function sendMessage() {
     const content = messageInputEl.value.trim();
     if (content && activeChatFriend) {
-        socket.emit('send_message', { receiverId: activeChatFriend.id, content: content, type: 'text' });
+        socket.emit('send_message', {
+            receiverId: activeChatFriend.id,
+            content: content,
+            type: 'text'
+        });
         messageInputEl.value = '';
     }
 }
@@ -180,10 +295,16 @@ fileInputEl.addEventListener('change', async (e) => {
     const file = e.target.files[0]; if (!file) return;
     const formData = new FormData(); formData.append('chatFile', file);
     try {
-        const response = await fetch('/upload-chat-file', { method: 'POST', body: formData });
+        const response = await apiCall('/upload-chat-file', { method: 'POST', body: formData });
         const result = await response.json();
-        if (result.success) { socket.emit('send_message', { receiverId: activeChatFriend.id, content: result.filePath, type: 'file' }); } else { showNotification('Dosya yüklenemedi: ' + result.message, 'error'); }
-    } catch (error) { showNotification('Dosya gönderilirken bir hata oluştu.', 'error'); }
+        if (result.success) {
+            socket.emit('send_message', { receiverId: activeChatFriend.id, content: result.filePath, type: 'file' });
+        } else {
+            showNotification('Dosya yüklenemedi: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showNotification('Dosya gönderilirken bir hata oluştu.', 'error');
+    }
     e.target.value = '';
 });
 
@@ -192,6 +313,11 @@ videoCallBtnEl.addEventListener('click', () => startVideoCall());
 modalCloseBtn.addEventListener('click', closeVideoCallModal);
 acceptCallBtnEl.addEventListener('click', acceptCall);
 endCallBtnEl.addEventListener('click', endCall);
+
+let localStream = null;
+let remoteStream = null;
+let peerConnection = null;
+let isCaller = false;
 
 async function startVideoCall() {
     if (!activeChatFriend) return;
@@ -222,7 +348,7 @@ async function acceptCall() {
         localVideoEl.srcObject = localStream;
         createPeerConnection();
         localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-        const offer = window.currentOffer; // Sunucudan gelen teklif
+        const offer = window.currentOffer;
         await peerConnection.setRemoteDescription(offer);
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
@@ -286,69 +412,176 @@ function endCall() {
     closeVideoCallModal();
 }
 
-
 // --- FRIEND MANAGEMENT ---
 addFriendBtnEl.addEventListener('click', () => { addFriendModal.style.display = 'block'; });
 modalCloseBtn.addEventListener('click', () => { addFriendModal.style.display = 'none'; });
 sendFriendRequestBtnEl.addEventListener('click', () => {
     const friendUsername = friendUsernameInputEl.value.trim();
-    if (friendUsername) { socket.emit('add_friend', friendUsername); friendUsernameInputEl.value = ''; addFriendModal.style.display = 'none'; }
+    if (friendUsername) {
+        socket.emit('add_friend', friendUsername);
+        friendUsernameInputEl.value = '';
+        addFriendModal.style.display = 'none';
+    }
 });
 
 // --- PROFILE SETTINGS ---
 function loadProfileSettings() {
-    settingsProfilePicEl.src = currentUser.profile_pic || '/default.png';
-    settingsNicknameEl.value = currentUser.nickname || '';
-    settingsDescriptionEl.value = currentUser.description || '';
+    if (currentUser) {
+        settingsProfilePicEl.src = currentUser.profile_pic || '/default.png';
+        settingsNicknameEl.value = currentUser.nickname || '';
+        settingsDescriptionEl.value = currentUser.description || '';
+    }
 }
 profilePicInputEl.addEventListener('change', async (e) => {
     const file = e.target.files[0]; if (!file) return;
-    const formData = new FormData(); formData.append('profilePic', file); formData.append('userId', currentUser.id);
-    const response = await fetch('/upload-profile-pic', { method: 'POST', body: formData });
+    const formData = new FormData();
+    formData.append('profilePic', file);
+    formData.append('userId', currentUser.id);
+    const response = await apiCall('/upload-profile-pic', { method: 'POST', body: formData });
     const result = await response.json();
-    if (result.success) { currentUser.profile_pic = result.profilePic; updateUserInfo(); loadProfileSettings(); showNotification('Profil fotoğrafı güncellendi!', 'success'); } else { showNotification('Fotoğraf yüklenemedi.', 'error'); }
+    if (result.success) {
+        currentUser.profile_pic = result.profilePic;
+        updateUserInfo();
+        loadProfileSettings();
+        showNotification('Profil fotoğrafı güncellendi!', 'success');
+    } else {
+        showNotification('Fotoğraf yüklenemedi.', 'error');
+    }
 });
-updateNicknameBtnEl.addEventListener('click', () => { const newNickname = settingsNicknameEl.value.trim(); if (newNickname) { socket.emit('update_profile', { type: 'nickname', value: newNickname }); } });
-updateDescriptionBtnEl.addEventListener('click', () => { const newDescription = settingsDescriptionEl.value.trim(); if (newDescription) { socket.emit('update_profile', { type: 'description', value: newDescription }); } });
+
+updateNicknameBtnEl.addEventListener('click', () => {
+    const newNickname = settingsNicknameEl.value.trim();
+    if (newNickname) {
+        socket.emit('update_profile', { type: 'nickname', value: newNickname });
+    }
+});
+
+updateDescriptionBtnEl.addEventListener('click', () => {
+    const newDescription = settingsDescriptionEl.value.trim();
+    if (newDescription) {
+        socket.emit('update_profile', { type: 'description', value: newDescription });
+    }
+});
+
 updatePasswordBtnEl.addEventListener('click', () => {
-    const oldPass = oldPasswordEl.value; const newPass = newPasswordEl.value; const newPassConfirm = newPasswordConfirmEl.value;
-    if (!oldPass || !newPass || !newPassConfirm) { showNotification('Tüm şifre alanlarını doldurun.', 'error'); return; }
-    if (newPass !== newPassConfirm) { showNotification('Yeni şifreler eşleşmiyor.', 'error'); return; }
+    const oldPass = oldPasswordEl.value;
+    const newPass = newPasswordEl.value;
+    const newPassConfirm = newPasswordConfirmEl.value;
+    if (!oldPass || !newPass || !newPassConfirm) {
+        showNotification('Tüm şifre alanlarını doldurun.', 'error');
+        return;
+    }
+    if (newPass !== newPassConfirm) {
+        showNotification('Yeni şifreler eşleşmiyor.', 'error');
+        return;
+    }
     socket.emit('update_profile', { type: 'password', value: { oldPassword: oldPass, newPassword: newPass } });
-    oldPasswordEl.value = ''; newPasswordEl.value = ''; newPasswordConfirmEl.value = '';
+    oldPasswordEl.value = '';
+    newPasswordEl.value = '';
+    newPasswordConfirmEl.value = '';
 });
 
 // --- SOCKET.IO LISTENERS ---
-socket.on('load_friend_list', (friendList) => { renderFriendList(friendList); });
-socket.on('friend_request_received', (requesterInfo) => { const accept = confirm(`${requesterInfo.nickname || requesterInfo.username} (${requesterInfo.username}) sizinle arkadaş olmak istiyor. Kabul ediyor musunuz?`); socket.emit('respond_to_friend_request', { requesterId: requesterInfo.id, accept }); });
+socket.on('connect', () => {
+    console.log('Bir kullanıcı bağlandı.');
+    // Kullanıcı zaten giriş yapmışsa, bu kod çalışmayacak.
+});
+
+socket.on('load_friend_list', (friendList) => {
+    renderFriendList(friendList);
+});
+
+socket.on('friend_request_received', (requesterInfo) => {
+    const accept = confirm(`${requesterInfo.nickname || requesterInfo.username} (${requesterInfo.username}) sizinle arkadaş olmak istiyor. Kabul ediyor musunuz?`);
+    socket.emit('respond_to_friend_request', { requesterId: requesterInfo.id, accept });
+});
+
 socket.on('new_message', (message) => {
     const li = document.createElement('li');
     if (message.type === 'file') {
-        if (message.content.match(/\.(jpeg|jpg|gif|png)$/i)) { const img = document.createElement('img'); img.src = message.content; img.alt = "Gönderilen resim"; li.appendChild(img); }
-        else { const a = document.createElement('a'); a.href = message.content; a.target = '_blank'; a.textContent = message.content.split('/').pop(); a.download = message.content.split('/').pop(); li.appendChild(a); }
-    } else { li.textContent = message.content; }
-    if (message.senderId === currentUser.id) { li.classList.add('sent'); } else { li.classList.add('received'); }
-    messagesEl.appendChild(li); messagesEl.scrollTop = messagesEl.scrollHeight;
+        if (message.content.match(/\.(jpeg|jpg|gif|png)$/i)) {
+            const img = document.createElement('img');
+            img.src = message.content;
+            img.alt = "Gönderilen resim";
+            li.appendChild(img);
+        } else {
+            const a = document.createElement('a');
+            a.href = message.content;
+            a.target = '_blank';
+            a.textContent = message.content.split('/').pop();
+            a.download = message.content.split('/').pop();
+            li.appendChild(a);
+        }
+    } else {
+        li.textContent = message.content;
+    }
+    if (message.senderId === currentUser.id) {
+        li.classList.add('sent');
+    } else {
+        li.classList.add('received');
+    }
+    messagesEl.appendChild(li);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
 });
+
 socket.on('chat_history', (messages) => {
-    messagesEl.innerHTML = ''; if (messages.length === 0) { return; }
+    messagesEl.innerHTML = '';
+    if (messages.length === 0) {
+        return;
+    }
     messages.forEach(msg => {
         const li = document.createElement('li');
-        if (msg.type === 'file') { if (msg.content.match(/\.(jpeg|jpg|gif|png)$/i)) { const img = document.createElement('img'); img.src = msg.content; img.alt = "Gönderilen resim"; li.appendChild(img); } else { const a = document.createElement('a'); a.href = msg.content; a.target = '_blank'; a.textContent = msg.content.split('/').pop(); a.download = msg.content.split('/').pop(); li.appendChild(a); } } else { li.textContent = msg.content; }
-        if (msg.senderId === currentUser.id) { li.classList.add('sent'); } else { li.classList.add('received'); }
+        if (msg.type === 'file') {
+            if (msg.content.match(/\.(jpeg|jpg|gif|png)$/i)) {
+                const img = document.createElement('img');
+                img.src = msg.content;
+                img.alt = "Gönderilen resim";
+                li.appendChild(img);
+            } else {
+                const a = document.createElement('a');
+                a.href = msg.content;
+                a.target = '_blank';
+                a.textContent = msg.content.split('/').pop();
+                a.download = msg.content.split('/').pop();
+                li.appendChild(a);
+            }
+        } else {
+            li.textContent = msg.content;
+        }
+        if (msg.senderId === currentUser.id) {
+            li.classList.add('sent');
+        } else {
+            li.classList.add('received');
+        }
         messagesEl.appendChild(li);
     });
     messagesEl.scrollTop = messagesEl.scrollHeight;
 });
+
 socket.on('friend_status_change', ({ userId, isOnline }) => {
     const friendElement = document.querySelector(`#friend-list li[data-user-id="${userId}"]`);
-    if (friendElement) { const statusIndicator = friendElement.querySelector('.status-indicator'); if (isOnline) { statusIndicator.classList.add('online'); } else { statusIndicator.classList.remove('online'); } }
-});
-socket.on('display_typing', ({ senderId, isTyping }) => {
-    if (activeChatFriend && senderId === activeChatFriend.id) {
-        if (isTyping) { const typingUser = friends.find(f => f.id === senderId); const nickname = typingUser ? (typingUser.nickname || typingUser.username) : 'Birisi'; typingIndicatorEl.textContent = `${nickname} yazıyor...`; } else { typingIndicatorEl.textContent = ''; }
+    if (friendElement) {
+        const statusIndicator = friendElement.querySelector('.status-indicator');
+        if (isOnline) {
+            statusIndicator.classList.add('online');
+        } else {
+            statusIndicator.classList.remove('online');
+        }
     }
 });
+
+socket.on('display_typing', ({ senderId, isTyping }) => {
+    if (activeChatFriend && senderId === activeChatFriend.id) {
+        if (isTyping) {
+            const typingUser = friends.find(f => f.id === senderId);
+            const nickname = typingUser ? (typingUser.nickname || typingUser.username) : 'Birisi';
+            typingIndicatorEl.textContent = `${nickname} yazıyor...`;
+        } else {
+            typingIndicatorEl.textContent = '';
+        }
+    }
+});
+
 // --- YENİ: Video Arama Socket Dinleyicileri ---
 socket.on('call-offer', async ({ offer, from }) => {
     if (activeChatFriend && from === activeChatFriend.id) {
@@ -358,26 +591,5 @@ socket.on('call-offer', async ({ offer, from }) => {
         callStatusEl.textContent = `${friends.find(f => f.id === from)?.nickname || from} arıyor...`;
     }
 });
-socket.on('call-answer', async ({ answer }) => {
-    if (peerConnection) {
-        await peerConnection.setRemoteDescription(answer);
-        callStatusEl.textContent = 'Bağlantı kuruluyor...';
-    }
-});
-socket.on('ice-candidate', async ({ candidate }) => {
-    if (peerConnection) {
-        await peerConnection.addIceCandidate(candidate);
-    }
-});
-socket.on('end-call', () => {
-    console.log('Gelen "end-call" sinyali alındı.');
-    closeVideoCallModal();
-});
-socket.on('call-failed', (message) => {
-    showNotification(message, 'error');
-    closeVideoCallModal();
-});
 
-socket.on('new_status_update', (statusData) => { showNotification(`${statusData.user.nickname || statusData.user.username} durum güncelledi: "${statusData.content}"`); });
-socket.on('profile_updated', (data) => { if (data.type === 'nickname') currentUser.nickname = data.value; if (data.type === 'description') currentUser.description = data.value; updateUserInfo(); showNotification(`Profiliniz (${data.type}) güncellendi.`, 'success'); });
-socket.on('error', (message) => { showNotification(message, 'error'); });
+socket.on('call-answer', async
