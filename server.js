@@ -312,7 +312,7 @@ io.on('connection', (socket) => {
         });
     });
 
-    // --- YENİ ÖZELLİK: Kullanıcı Yazıyor Bildirimleri ---
+    // Kullanıcı Yazıyor Bildirimleri
     socket.on('typing_start', ({ receiverId }) => {
         const receiverSocketId = connectedUsers[receiverId];
         if (receiverSocketId) {
@@ -324,6 +324,41 @@ io.on('connection', (socket) => {
         const receiverSocketId = connectedUsers[receiverId];
         if (receiverSocketId) {
             io.to(receiverSocketId).emit('display_typing', { senderId: socket.userId, isTyping: false });
+        }
+    });
+
+    // --- YENİ ÖZELLİK: Sesli/Görüntülü Arama Sinyalleşmesi ---
+    socket.on('call-user', ({ offer, to }) => {
+        console.log(`[DEBUG] ${socket.userId} kullanıcısı ${to} kullanıcısını arıyor.`);
+        const targetSocketId = connectedUsers[to];
+        if (targetSocketId) {
+            io.to(targetSocketId).emit('call-offer', { offer: offer, from: socket.userId });
+        } else {
+            socket.emit('call-failed', 'Kullanıcı şu anda çevrimdışı.');
+        }
+    });
+
+    socket.on('call-answer', ({ answer, to }) => {
+        console.log(`[DEBUG] ${socket.userId} kullanıcısı ${to} kullanıcısının aramasına cevap veriyor.`);
+        const targetSocketId = connectedUsers[to];
+        if (targetSocketId) {
+            io.to(targetSocketId).emit('call-answer', { answer: answer });
+        }
+    });
+
+    socket.on('ice-candidate', ({ candidate, to }) => {
+        console.log(`[DEBUG] ICE adayı alındı ve ${to} kullanıcısına gönderiliyor.`);
+        const targetSocketId = connectedUsers[to];
+        if (targetSocketId) {
+            io.to(targetSocketId).emit('ice-candidate', { candidate: candidate });
+        }
+    });
+
+    socket.on('end-call', ({ to }) => {
+        console.log(`[DEBUG] ${socket.userId} kullanıcısı ${to} ile olan görüşmeyi sonlandırıyor.`);
+        const targetSocketId = connectedUsers[to];
+        if (targetSocketId) {
+            io.to(targetSocketId).emit('end-call');
         }
     });
 
