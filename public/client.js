@@ -29,7 +29,7 @@ const sendMessageBtnEl = document.getElementById('send-message-btn');
 const addFriendBtnEl = document.getElementById('add-friend-btn');
 const profileSettingsBtnEl = document.getElementById('profile-settings-btn');
 
-// --- YENİ ÖZELLİK: Dosya Gönderme Elementleri ---
+// Dosya Gönderme Elementleri
 const attachFileBtnEl = document.getElementById('attach-file-btn');
 const fileInputEl = document.getElementById('file-input');
 
@@ -153,15 +153,25 @@ function updateUserInfo() {
     myProfilePicEl.src = currentUser.profile_pic || '/default.png';
 }
 
+// --- GÜNCELLENMİŞ renderFriendList: Durum Göstergesini Ekliyor ---
 function renderFriendList(friendList) {
     friends = friendList;
     friendListEl.innerHTML = '';
     friends.forEach(friend => {
         const li = document.createElement('li');
+        li.dataset.userId = friend.id; // ID'yi data attribute olarak sakla
+
+        const statusIndicator = document.createElement('span');
+        statusIndicator.className = 'status-indicator';
+        if (friend.isOnline) {
+            statusIndicator.classList.add('online');
+        }
+
         li.innerHTML = `
             <img src="${friend.profile_pic || '/default.png'}" alt="${friend.nickname}">
             <span>${friend.nickname || friend.username}</span>
         `;
+        li.prepend(statusIndicator); // Durum göstergesini en başa ekle
         li.addEventListener('click', () => startChat(friend));
         friendListEl.appendChild(li);
     });
@@ -177,7 +187,6 @@ function startChat(friend) {
     event.currentTarget.classList.add('active');
 
     messagesEl.innerHTML = '';
-
     socket.emit('request_chat_history', { friendId: friend.id });
 }
 
@@ -200,7 +209,7 @@ function sendMessage() {
     }
 }
 
-// --- YENİ ÖZELLİK: Dosya Gönderme Mantığı ---
+// --- Dosya Gönderme Mantığı ---
 attachFileBtnEl.addEventListener('click', () => {
     fileInputEl.click();
 });
@@ -220,10 +229,9 @@ fileInputEl.addEventListener('change', async (e) => {
         const result = await response.json();
 
         if (result.success) {
-            // Dosya başarıyla yüklendi, şimdi mesajı gönder
             socket.emit('send_message', {
                 receiverId: activeChatFriend.id,
-                content: result.filePath, // Dosyanın yolunu gönder
+                content: result.filePath,
                 type: 'file'
             });
         } else {
@@ -232,11 +240,8 @@ fileInputEl.addEventListener('change', async (e) => {
     } catch (error) {
         showNotification('Dosya gönderilirken bir hata oluştu.', 'error');
     }
-
-    // Input'u sıfırla ki aynı dosyayı tekrar seçebilelim
     e.target.value = '';
 });
-
 
 // --- FRIEND MANAGEMENT ---
 addFriendBtnEl.addEventListener('click', () => {
@@ -318,7 +323,7 @@ updatePasswordBtnEl.addEventListener('click', () => {
     newPasswordConfirmEl.value = '';
 });
 
-// --- SOCKET.IO LISTENERS (GERÇEK ZAMANLI OLAYLARI DİNLEME) ---
+// --- SOCKET.IO LISTENERS ---
 socket.on('load_friend_list', (friendList) => {
     renderFriendList(friendList);
 });
@@ -332,7 +337,6 @@ socket.on('new_message', (message) => {
     const li = document.createElement('li');
     
     if (message.type === 'file') {
-        // Dosya ise, resim veya link oluştur
         if (message.content.match(/\.(jpeg|jpg|gif|png)$/i)) {
             const img = document.createElement('img');
             img.src = message.content;
@@ -342,12 +346,11 @@ socket.on('new_message', (message) => {
             const a = document.createElement('a');
             a.href = message.content;
             a.target = '_blank';
-            a.textContent = message.content.split('/').pop(); // Sadece dosya adını göster
+            a.textContent = message.content.split('/').pop();
             a.download = message.content.split('/').pop();
             li.appendChild(a);
         }
     } else {
-        // Metin ise
         li.textContent = message.content;
     }
 
@@ -395,6 +398,19 @@ socket.on('chat_history', (messages) => {
         messagesEl.appendChild(li);
     });
     messagesEl.scrollTop = messagesEl.scrollHeight; 
+});
+
+// --- YENİ ÖZELLİK: Çevrimiçi Durum Değişikliği Dinleyicisi ---
+socket.on('friend_status_change', ({ userId, isOnline }) => {
+    const friendElement = document.querySelector(`#friend-list li[data-user-id="${userId}"]`);
+    if (friendElement) {
+        const statusIndicator = friendElement.querySelector('.status-indicator');
+        if (isOnline) {
+            statusIndicator.classList.add('online');
+        } else {
+            statusIndicator.classList.remove('online');
+        }
+    }
 });
 
 socket.on('new_status_update', (statusData) => {
