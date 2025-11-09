@@ -58,7 +58,6 @@
             <div id="main-content">
                 <div id="chat-header">
                     <span id="active-chat-name">Sohbet etmek için bir arkadaş seçin.</span>
-                    <!-- YENİ: Yazıyor göstergesi -->
                     <span id="typing-indicator"></span>
                 </div>
                 <div id="chat-window">
@@ -69,6 +68,8 @@
                 <div id="chat-input-container">
                     <button id="attach-file-btn" title="Dosya Ekle">📎</button>
                     <input type="file" id="file-input" style="display: none;" accept="image/*, .pdf, .doc, .docx, .txt">
+                    <!-- YENİ: Video Arama Butonu -->
+                    <button id="video-call-btn" title="Video Arama" disabled>📹</button>
                     <input type="text" id="message-input" placeholder="Mesajınızı yazın..." disabled>
                     <button id="send-message-btn" disabled>Gönder</button>
                 </div>
@@ -116,6 +117,24 @@
             <h2>Arkadaş Ekle</h2>
             <input type="text" id="friend-username-input" placeholder="Eklemek istediğiniz kullanıcının adı">
             <button id="send-friend-request-btn">İstek Gönder</button>
+        </div>
+    </div>
+
+    <!-- YENİ: Video Arama Modalı -->
+    <div id="video-call-modal" class="modal">
+        <div class="modal-content video-modal-content">
+            <span class="close-btn">&times;</span>
+            <div class="video-container">
+                <video id="local-video" autoplay muted playsinline></video>
+                <video id="remote-video" autoplay playsinline></video>
+            </div>
+            <div class="call-controls">
+                <h3 id="call-status">Bağlanıyor...</h3>
+                <div class="call-buttons">
+                    <button id="accept-call-btn" class="call-btn accept-btn">Kabul Et</button>
+                    <button id="end-call-btn" class="call-btn end-btn">Reddet / Bitir</button>
+                </div>
+            </div>
         </div>
     </div>
 
