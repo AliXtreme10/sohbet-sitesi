@@ -126,6 +126,7 @@ body {
     overflow-y: auto;
 }
 
+/* --- YENİ: Arkadaş Listesi Öğesi ve Durum Göstergesi --- */
 #friend-list li {
     padding: 10px;
     cursor: pointer;
@@ -133,6 +134,7 @@ body {
     display: flex;
     align-items: center;
     transition: background-color 0.2s;
+    position: relative;
 }
 
 #friend-list li:hover {
@@ -141,6 +143,19 @@ body {
 
 #friend-list li.active {
     background-color: #3498db;
+}
+
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #bdc3c7; /* Çevrimdışı rengi (gri) */
+    margin-right: 10px;
+    flex-shrink: 0; /* Küçülmesini engelle */
+}
+
+.status-indicator.online {
+    background-color: #2ecc71; /* Çevrimiçi rengi (yeşil) */
 }
 
 #friend-list img {
