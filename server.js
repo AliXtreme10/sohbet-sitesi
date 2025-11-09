@@ -219,7 +219,7 @@ io.on('connection', (socket) => {
         });
     });
 
-    // --- EN SON DÜZELTME: Arkadaşlık İsteğine Cevap (Kabul Et / Reddet) ---
+    // Arkadaşlık İsteğine Cevap (Kabul Et / Reddet)
     socket.on('respond_to_friend_request', ({ requesterId, accept }) => {
         console.log(`[DEBUG] Arkadaşlık isteğine cevap geldi. İstek sahibi ID: ${requesterId}, Cevaplayan ID: ${socket.userId}, Kabul: ${accept}`);
 
@@ -232,13 +232,11 @@ io.on('connection', (socket) => {
                 }
                 console.log(`[DEBUG] Arkadaşlık durumu 'accepted' olarak güncellendi.`);
                 
-                // İstek sahibinin arkadaş listesini güncelle
                 getFriendList(requesterId, (friends) => {
                     console.log(`[DEBUG] İstek sahibi (${requesterId}) için yeni arkadaş listesi:`, friends);
                     io.to(connectedUsers[requesterId]).emit('load_friend_list', friends);
                 });
 
-                // Cevap verenin arkadaş listesini güncelle
                 getFriendList(socket.userId, (friends) => {
                     console.log(`[DEBUG] Cevap verenin (${socket.userId}) için yeni arkadaş listesi:`, friends);
                     socket.emit('load_friend_list', friends);
@@ -271,6 +269,26 @@ io.on('connection', (socket) => {
                 io.to(receiverSocketId).emit('new_message', messageData);
             }
             socket.emit('new_message', messageData);
+        });
+    });
+
+    // --- YENİ ÖZELLİK: Mesaj Geçmişi İsteği ---
+    socket.on('request_chat_history', ({ friendId }) => {
+        console.log(`[DEBUG] ${socket.userId} kullanıcısı, ${friendId} ile olan mesaj geçmişini istiyor.`);
+        
+        const sql = `
+            SELECT * FROM messages 
+            WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?) 
+            ORDER BY timestamp ASC
+        `;
+        db.all(sql, [socket.userId, friendId, friendId, socket.userId], (err, messages) => {
+            if (err) {
+                console.error("Mesaj geçmişi alınırken hata:", err);
+                socket.emit('error', 'Mesaj geçmişi yüklenirken bir hata oluştu.');
+                return;
+            }
+            console.log(`[DEBUG] ${messages.length} adet mesaj geçmişi bulundu ve gönderiliyor.`);
+            socket.emit('chat_history', messages);
         });
     });
 
@@ -346,7 +364,6 @@ function getUserInfo(userId, callback) {
     db.get(sql, [userId], callback);
 }
 
-// --- SON DÜZELTME: getFriendList FONKSİYONU ---
 function getFriendList(userId, callback) {
     const sql = `
         SELECT u.id, u.username, u.nickname, u.profile_pic, u.description
@@ -357,10 +374,10 @@ function getFriendList(userId, callback) {
     db.all(sql, [userId, userId, userId], (err, rows) => {
         if (err) {
             console.error("[DEBUG] Arkadaş listesi alınırken veritabanı hatası:", err);
-            callback(null); // Hata durumunda null gönder
+            callback(null);
             return;
         }
-        callback(rows); // Başarılı olursa arkadaş listesini gönder
+        callback(rows);
     });
 }
 
