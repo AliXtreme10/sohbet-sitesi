@@ -142,7 +142,7 @@ app.post('/upload-profile-pic', upload.single('profilePic'), (req, res) => {
     });
 });
 
-// --- YENİ ÖZELLİK: Sohbet Dosyası Yükleme Rotası ---
+// Sohbet Dosyası Yükleme Rotası
 app.post('/upload-chat-file', upload.single('chatFile'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ success: false, message: 'Dosya seçilmedi.' });
@@ -166,6 +166,16 @@ io.on('connection', (socket) => {
         socket.userId = userId;
         console.log(`[DEBUG] Kullanıcı ${userId} giriş yaptı. Güncel çevrimiçi kullanıcılar:`, connectedUsers);
         
+        // --- YENİ: Çevrimiçi olduğunu arkadaşlarına bildir ---
+        getFriendList(userId, (friends) => {
+            friends.forEach(friend => {
+                const friendSocketId = connectedUsers[friend.id];
+                if (friendSocketId) {
+                    io.to(friendSocketId).emit('friend_status_change', { userId: userId, isOnline: true });
+                }
+            });
+        });
+
         getFriendList(userId, (friends) => {
             socket.emit('load_friend_list', friends);
         });
@@ -361,6 +371,16 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         // console.log('Bir kullanıcı ayrıldı:', socket.id); // Sessize alındı
         if (socket.userId) {
+            // --- YENİ: Çevrimdışı olduğunu arkadaşlarına bildir ---
+            getFriendList(socket.userId, (friends) => {
+                friends.forEach(friend => {
+                    const friendSocketId = connectedUsers[friend.id];
+                    if (friendSocketId) {
+                        io.to(friendSocketId).emit('friend_status_change', { userId: socket.userId, isOnline: false });
+                    }
+                });
+            });
+
             delete connectedUsers[socket.userId];
         }
     });
