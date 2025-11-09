@@ -166,7 +166,7 @@ io.on('connection', (socket) => {
         socket.userId = userId;
         console.log(`[DEBUG] Kullanıcı ${userId} giriş yaptı. Güncel çevrimiçi kullanıcılar:`, connectedUsers);
         
-        // --- YENİ: Çevrimiçi olduğunu arkadaşlarına bildir ---
+        // Çevrimiçi olduğunu arkadaşlarına bildir
         getFriendList(userId, (friends) => {
             friends.forEach(friend => {
                 const friendSocketId = connectedUsers[friend.id];
@@ -176,6 +176,7 @@ io.on('connection', (socket) => {
             });
         });
 
+        // Kullanıcının kendi arkadaş listesini gönder
         getFriendList(userId, (friends) => {
             socket.emit('load_friend_list', friends);
         });
@@ -371,7 +372,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         // console.log('Bir kullanıcı ayrıldı:', socket.id); // Sessize alındı
         if (socket.userId) {
-            // --- YENİ: Çevrimdışı olduğunu arkadaşlarına bildir ---
+            // Çevrimdışı olduğunu arkadaşlarına bildir
             getFriendList(socket.userId, (friends) => {
                 friends.forEach(friend => {
                     const friendSocketId = connectedUsers[friend.id];
@@ -393,6 +394,7 @@ function getUserInfo(userId, callback) {
     db.get(sql, [userId], callback);
 }
 
+// --- GÜNCELLENMİŞ getFriendList: Çevrimiçi Durumunu Dahil Ediyor ---
 function getFriendList(userId, callback) {
     const sql = `
         SELECT u.id, u.username, u.nickname, u.profile_pic, u.description
@@ -406,7 +408,14 @@ function getFriendList(userId, callback) {
             callback(null);
             return;
         }
-        callback(rows);
+        // Her bir arkadaşın çevrimiçi durumunu ekle
+        const friendsWithStatus = rows.map(friend => {
+            return {
+                ...friend,
+                isOnline: connectedUsers.hasOwnProperty(friend.id)
+            };
+        });
+        callback(friendsWithStatus);
     });
 }
 
