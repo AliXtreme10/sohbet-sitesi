@@ -142,6 +142,15 @@ app.post('/upload-profile-pic', upload.single('profilePic'), (req, res) => {
     });
 });
 
+// --- YENİ ÖZELLİK: Sohbet Dosyası Yükleme Rotası ---
+app.post('/upload-chat-file', upload.single('chatFile'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ success: false, message: 'Dosya seçilmedi.' });
+    }
+    const filePath = `/uploads/${req.file.filename}`;
+    res.json({ success: true, filePath: filePath });
+});
+
 
 // --- SOCKET.IO GERÇEK ZAMANLI MANTIĞI ---
 
@@ -272,7 +281,7 @@ io.on('connection', (socket) => {
         });
     });
 
-    // --- YENİ ÖZELLİK: Mesaj Geçmişi İsteği ---
+    // Mesaj Geçmişi İsteği
     socket.on('request_chat_history', ({ friendId }) => {
         console.log(`[DEBUG] ${socket.userId} kullanıcısı, ${friendId} ile olan mesaj geçmişini istiyor.`);
         
