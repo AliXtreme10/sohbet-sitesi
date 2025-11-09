@@ -126,7 +126,7 @@ body {
     overflow-y: auto;
 }
 
-/* --- YENİ: Arkadaş Listesi Öğesi ve Durum Göstergesi --- */
+/* --- Arkadaş Listesi Öğesi ve Durum Göstergesi --- */
 #friend-list li {
     padding: 10px;
     cursor: pointer;
@@ -177,6 +177,16 @@ body {
     background-color: #ecf0f1;
     border-bottom: 1px solid #bdc3c7;
     font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* --- YENİ: Yazıyor Göstergesi Stili --- */
+#typing-indicator {
+    font-style: italic;
+    color: #888;
+    font-size: 0.9em;
 }
 
 #chat-window {
