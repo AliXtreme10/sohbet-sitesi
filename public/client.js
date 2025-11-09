@@ -29,6 +29,10 @@ const sendMessageBtnEl = document.getElementById('send-message-btn');
 const addFriendBtnEl = document.getElementById('add-friend-btn');
 const profileSettingsBtnEl = document.getElementById('profile-settings-btn');
 
+// --- YENİ ÖZELLİK: Dosya Gönderme Elementleri ---
+const attachFileBtnEl = document.getElementById('attach-file-btn');
+const fileInputEl = document.getElementById('file-input');
+
 // Profile Settings
 const settingsProfilePicEl = document.getElementById('settings-profile-pic');
 const profilePicInputEl = document.getElementById('profile-pic-input');
@@ -163,7 +167,6 @@ function renderFriendList(friendList) {
     });
 }
 
-// --- GÜNCELELLENMİŞ startChat FONKSİYONU ---
 function startChat(friend) {
     activeChatFriend = friend;
     activeChatNameEl.textContent = `${friend.nickname || friend.username} ile sohbet`;
@@ -173,9 +176,8 @@ function startChat(friend) {
     document.querySelectorAll('#friend-list li').forEach(item => item.classList.remove('active'));
     event.currentTarget.classList.add('active');
 
-    messagesEl.innerHTML = ''; // Önceki sohbeti temizle
+    messagesEl.innerHTML = '';
 
-    // Sunucudan bu arkadaşla olan mesaj geçmişini iste
     socket.emit('request_chat_history', { friendId: friend.id });
 }
 
@@ -197,6 +199,44 @@ function sendMessage() {
         messageInputEl.value = '';
     }
 }
+
+// --- YENİ ÖZELLİK: Dosya Gönderme Mantığı ---
+attachFileBtnEl.addEventListener('click', () => {
+    fileInputEl.click();
+});
+
+fileInputEl.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('chatFile', file);
+
+    try {
+        const response = await fetch('/upload-chat-file', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            // Dosya başarıyla yüklendi, şimdi mesajı gönder
+            socket.emit('send_message', {
+                receiverId: activeChatFriend.id,
+                content: result.filePath, // Dosyanın yolunu gönder
+                type: 'file'
+            });
+        } else {
+            showNotification('Dosya yüklenemedi: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showNotification('Dosya gönderilirken bir hata oluştu.', 'error');
+    }
+
+    // Input'u sıfırla ki aynı dosyayı tekrar seçebilelim
+    e.target.value = '';
+});
+
 
 // --- FRIEND MANAGEMENT ---
 addFriendBtnEl.addEventListener('click', () => {
@@ -290,7 +330,27 @@ socket.on('friend_request_received', (requesterInfo) => {
 
 socket.on('new_message', (message) => {
     const li = document.createElement('li');
-    li.textContent = message.content;
+    
+    if (message.type === 'file') {
+        // Dosya ise, resim veya link oluştur
+        if (message.content.match(/\.(jpeg|jpg|gif|png)$/i)) {
+            const img = document.createElement('img');
+            img.src = message.content;
+            img.alt = "Gönderilen resim";
+            li.appendChild(img);
+        } else {
+            const a = document.createElement('a');
+            a.href = message.content;
+            a.target = '_blank';
+            a.textContent = message.content.split('/').pop(); // Sadece dosya adını göster
+            a.download = message.content.split('/').pop();
+            li.appendChild(a);
+        }
+    } else {
+        // Metin ise
+        li.textContent = message.content;
+    }
+
     if (message.senderId === currentUser.id) {
         li.classList.add('sent');
     } else {
@@ -300,18 +360,33 @@ socket.on('new_message', (message) => {
     messagesEl.scrollTop = messagesEl.scrollHeight;
 });
 
-// --- YENİ ÖZELLİK: Mesaj Geçmişi Dinleyicisi ---
 socket.on('chat_history', (messages) => {
-    messagesEl.innerHTML = ''; // Ekranı temizle
+    messagesEl.innerHTML = '';
     if (messages.length === 0) {
-        // Eğer geçmişte mesaj yoksa bir mesaj gösterebiliriz (isteğe bağlı)
-        // messagesEl.innerHTML = '<li class="no-messages">Bu sohbette henüz mesaj yok.</li>';
         return;
     }
     
     messages.forEach(msg => {
         const li = document.createElement('li');
-        li.textContent = msg.content;
+        
+        if (msg.type === 'file') {
+            if (msg.content.match(/\.(jpeg|jpg|gif|png)$/i)) {
+                const img = document.createElement('img');
+                img.src = msg.content;
+                img.alt = "Gönderilen resim";
+                li.appendChild(img);
+            } else {
+                const a = document.createElement('a');
+                a.href = msg.content;
+                a.target = '_blank';
+                a.textContent = msg.content.split('/').pop();
+                a.download = msg.content.split('/').pop();
+                li.appendChild(a);
+            }
+        } else {
+            li.textContent = msg.content;
+        }
+
         if (msg.senderId === currentUser.id) {
             li.classList.add('sent');
         } else {
@@ -319,7 +394,6 @@ socket.on('chat_history', (messages) => {
         }
         messagesEl.appendChild(li);
     });
-    // En sona otomatik scroll et
     messagesEl.scrollTop = messagesEl.scrollHeight; 
 });
 
