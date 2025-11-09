@@ -148,7 +148,7 @@ app.post('/upload-profile-pic', upload.single('profilePic'), (req, res) => {
 const connectedUsers = {}; // { userId: socketId }
 
 io.on('connection', (socket) => {
-    console.log('Bir kullanıcı bağlandı:', socket.id);
+    // console.log('Bir kullanıcı bağlandı:', socket.id); // Sessize alındı
 
     // Kullanıcı giriş yaptığında onu 'connectedUsers' listesine ekle
     socket.on('user_login', (userId) => {
@@ -199,7 +199,6 @@ io.on('connection', (socket) => {
                     console.log(`[DEBUG] Hedef kullanıcının (ID=${friend.id}) socket ID'si aranıyor... Bulunan: ${targetSocketId}`);
 
                     if (targetSocketId) {
-                        // --- DÜZELTİLMİŞ KISIM ---
                         getUserInfo(socket.userId, (err, userInfo) => {
                             if (err) {
                                 console.error("[DEBUG] Kullanıcı bilgisi alınırken veritabanı hatası:", err);
@@ -220,23 +219,35 @@ io.on('connection', (socket) => {
         });
     });
 
-    // Arkadaşlık İsteğine Cevap (Kabul Et / Reddet)
+    // --- EN SON DÜZELTME: Arkadaşlık İsteğine Cevap (Kabul Et / Reddet) ---
     socket.on('respond_to_friend_request', ({ requesterId, accept }) => {
+        console.log(`[DEBUG] Arkadaşlık isteğine cevap geldi. İstek sahibi ID: ${requesterId}, Cevaplayan ID: ${socket.userId}, Kabul: ${accept}`);
+
         if (accept) {
             const updateSql = 'UPDATE friendships SET status = ? WHERE user_id1 = ? AND user_id2 = ?';
             db.run(updateSql, ['accepted', requesterId, socket.userId], (err) => {
-                if (err) return;
+                if (err) {
+                    console.error("[DEBUG] Arkadaşlık durumu güncellenirken veritabanı hatası:", err);
+                    return;
+                }
+                console.log(`[DEBUG] Arkadaşlık durumu 'accepted' olarak güncellendi.`);
                 
+                // İstek sahibinin arkadaş listesini güncelle
                 getFriendList(requesterId, (friends) => {
+                    console.log(`[DEBUG] İstek sahibi (${requesterId}) için yeni arkadaş listesi:`, friends);
                     io.to(connectedUsers[requesterId]).emit('load_friend_list', friends);
                 });
+
+                // Cevap verenin arkadaş listesini güncelle
                 getFriendList(socket.userId, (friends) => {
+                    console.log(`[DEBUG] Cevap verenin (${socket.userId}) için yeni arkadaş listesi:`, friends);
                     socket.emit('load_friend_list', friends);
                 });
             });
         } else {
             const deleteSql = 'DELETE FROM friendships WHERE user_id1 = ? AND user_id2 = ?';
             db.run(deleteSql, [requesterId, socket.userId]);
+            console.log(`[DEBUG] Arkadaşlık isteği reddedildi ve veritabanından silindi.`);
         }
     });
 
@@ -321,7 +332,7 @@ io.on('connection', (socket) => {
 
     // Bağlantı Kesilmesi
     socket.on('disconnect', () => {
-        console.log('Bir kullanıcı ayrıldı:', socket.id);
+        // console.log('Bir kullanıcı ayrıldı:', socket.id); // Sessize alındı
         if (socket.userId) {
             delete connectedUsers[socket.userId];
         }
