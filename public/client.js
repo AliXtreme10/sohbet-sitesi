@@ -29,6 +29,10 @@ const sendMessageBtnEl = document.getElementById('send-message-btn');
 const addFriendBtnEl = document.getElementById('add-friend-btn');
 const profileSettingsBtnEl = document.getElementById('profile-settings-btn');
 
+// --- YENİ: Yazıyor Göstergesi Elementleri ---
+const typingIndicatorEl = document.getElementById('typing-indicator');
+let typingTimer; // Debouncing için
+
 // Dosya Gönderme Elementleri
 const attachFileBtnEl = document.getElementById('attach-file-btn');
 const fileInputEl = document.getElementById('file-input');
@@ -153,13 +157,12 @@ function updateUserInfo() {
     myProfilePicEl.src = currentUser.profile_pic || '/default.png';
 }
 
-// --- GÜNCELLENMİŞ renderFriendList: Durum Göstergesini Ekliyor ---
 function renderFriendList(friendList) {
     friends = friendList;
     friendListEl.innerHTML = '';
     friends.forEach(friend => {
         const li = document.createElement('li');
-        li.dataset.userId = friend.id; // ID'yi data attribute olarak sakla
+        li.dataset.userId = friend.id;
 
         const statusIndicator = document.createElement('span');
         statusIndicator.className = 'status-indicator';
@@ -171,7 +174,7 @@ function renderFriendList(friendList) {
             <img src="${friend.profile_pic || '/default.png'}" alt="${friend.nickname}">
             <span>${friend.nickname || friend.username}</span>
         `;
-        li.prepend(statusIndicator); // Durum göstergesini en başa ekle
+        li.prepend(statusIndicator);
         li.addEventListener('click', () => startChat(friend));
         friendListEl.appendChild(li);
     });
@@ -187,6 +190,7 @@ function startChat(friend) {
     event.currentTarget.classList.add('active');
 
     messagesEl.innerHTML = '';
+    typingIndicatorEl.textContent = ''; // Yazıyor göstergesini sıfırla
     socket.emit('request_chat_history', { friendId: friend.id });
 }
 
@@ -208,6 +212,17 @@ function sendMessage() {
         messageInputEl.value = '';
     }
 }
+
+// --- YENİ: Yazıyor Göstergesi Mantığı ---
+messageInputEl.addEventListener('input', () => {
+    if (!activeChatFriend) return;
+    
+    socket.emit('typing_start', { receiverId: activeChatFriend.id });
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(() => {
+        socket.emit('typing_stop', { receiverId: activeChatFriend.id });
+    }, 1000); // 1 saniye hiçbir şey yazılmazsa yazmayı bıraktı say
+});
 
 // --- Dosya Gönderme Mantığı ---
 attachFileBtnEl.addEventListener('click', () => {
@@ -400,7 +415,7 @@ socket.on('chat_history', (messages) => {
     messagesEl.scrollTop = messagesEl.scrollHeight; 
 });
 
-// --- YENİ ÖZELLİK: Çevrimiçi Durum Değişikliği Dinleyicisi ---
+// --- YENİ: Çevrimiçi Durum Değişikliği Dinleyicisi ---
 socket.on('friend_status_change', ({ userId, isOnline }) => {
     const friendElement = document.querySelector(`#friend-list li[data-user-id="${userId}"]`);
     if (friendElement) {
@@ -409,6 +424,19 @@ socket.on('friend_status_change', ({ userId, isOnline }) => {
             statusIndicator.classList.add('online');
         } else {
             statusIndicator.classList.remove('online');
+        }
+    }
+});
+
+// --- YENİ: Yazıyor Göstergesi Dinleyicisi ---
+socket.on('display_typing', ({ senderId, isTyping }) => {
+    if (activeChatFriend && senderId === activeChatFriend.id) {
+        if (isTyping) {
+            const typingUser = friends.find(f => f.id === senderId);
+            const nickname = typingUser ? (typingUser.nickname || typingUser.username) : 'Birisi';
+            typingIndicatorEl.textContent = `${nickname} yazıyor...`;
+        } else {
+            typingIndicatorEl.textContent = '';
         }
     }
 });
