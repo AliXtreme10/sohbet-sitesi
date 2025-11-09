@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerçek Zamanlı Sohbet Sitesi</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div id="app-container">
+        <!-- Giriş Ekranı -->
+        <div id="login-view" class="view active">
+            <div class="form-container">
+                <h1>Giriş Yap</h1>
+                <form id="login-form">
+                    <input type="text" id="login-username" placeholder="Kullanıcı Adı" required>
+                    <input type="password" id="login-password" placeholder="Şifre" required>
+                    <button type="submit">Giriş Yap</button>
+                </form>
+                <p>Hesabınız yok mu? <a href="#" id="show-register">Kayıt Ol</a></p>
+            </div>
+        </div>
+
+        <!-- Kayıt Ekranı -->
+        <div id="register-view" class="view">
+            <div class="form-container">
+                <h1>Kayıt Ol</h1>
+                <form id="register-form">
+                    <input type="text" id="register-username" placeholder="Kullanıcı Adı (Benzersiz)" required>
+                    <input type="text" id="register-nickname" placeholder="Takma Ad (Herkes görebilir)">
+                    <input type="password" id="register-password" placeholder="Şifre" required>
+                    <input type="password" id="register-password-confirm" placeholder="Şifre Tekrarı" required>
+                    <button type="submit">Kayıt Ol</button>
+                </form>
+                <p>Zaten hesabınız var mı? <a href="#" id="show-login">Giriş Yap</a></p>
+            </div>
+        </div>
+
+        <!-- Sohbet Ana Ekranı -->
+        <div id="chat-view" class="view">
+            <div id="sidebar">
+                <div id="user-profile">
+                    <img id="my-profile-pic" src="" alt="Profil">
+                    <div>
+                        <div id="my-nickname"></div>
+                        <small id="my-username"></small>
+                    </div>
+                </div>
+                <div id="sidebar-actions">
+                    <button id="add-friend-btn">+ Arkadaş Ekle</button>
+                    <button id="profile-settings-btn">Profil Ayarları</button>
+                </div>
+                <h3>Arkadaşlarım</h3>
+                <ul id="friend-list">
+                    <!-- Arkadaş listesi JavaScript ile doldurulacak -->
+                </ul>
+            </div>
+            <div id="main-content">
+                <div id="chat-header">
+                    <span id="active-chat-name">Sohbet etmek için bir arkadaş seçin.</span>
+                </div>
+                <div id="chat-window">
+                    <ul id="messages">
+                        <!-- Mesajlar JavaScript ile doldurulacak -->
+                    </ul>
+                </div>
+                <div id="chat-input-container">
+                    <input type="text" id="message-input" placeholder="Mesajınızı yazın..." disabled>
+                    <button id="send-message-btn" disabled>Gönder</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profil Ayarları Ekranı -->
+        <div id="profile-settings-view" class="view">
+            <div class="form-container settings-container">
+                <h1>Profil Ayarları</h1>
+                <div class="settings-section">
+                    <h3>Profil Fotoğrafı</h3>
+                    <img id="settings-profile-pic" src="" alt="Profil Fotoğrafı">
+                    <input type="file" id="profile-pic-input" accept="image/*">
+                </div>
+                <div class="settings-section">
+                    <h3>Takma Ad</h3>
+                    <input type="text" id="settings-nickname">
+                    <button id="update-nickname-btn">Güncelle</button>
+                </div>
+                <div class="settings-section">
+                    <h3>Açıklama</h3>
+                    <textarea id="settings-description" rows="3"></textarea>
+                    <button id="update-description-btn">Güncelle</button>
+                </div>
+                <div class="settings-section">
+                    <h3>Şifre Değiştir</h3>
+                    <input type="password" id="old-password" placeholder="Eski Şifre">
+                    <input type="password" id="new-password" placeholder="Yeni Şifre">
+                    <input type="password" id="new-password-confirm" placeholder="Yeni Şifre Tekrarı">
+                    <button id="update-password-btn">Şifreyi Değiştir</button>
+                </div>
+                <button id="back-to-chat-btn" class="back-button">Sohbete Geri Dön</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bildirim Kutusu -->
+    <div id="notification-box"></div>
+
+    <!-- Arkadaş Ekleme Modalı -->
+    <div id="add-friend-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>Arkadaş Ekle</h2>
+            <input type="text" id="friend-username-input" placeholder="Eklemek istediğiniz kullanıcının adı">
+            <button id="send-friend-request-btn">İstek Gönder</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>

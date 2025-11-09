@@ -1,0 +1,333 @@
+/* public/style.css */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background-color: #f0f2f5;
+    color: #333;
+}
+
+#app-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.view {
+    display: none; /* Tüm 'sayfaları' varsayılan olarak gizle */
+    width: 100%;
+    height: 100%;
+}
+
+.view.active {
+    display: flex; /* Sadece 'active' sınıfına sahip olanı göster */
+}
+
+/* --- Giriş ve Kayıt Formları --- */
+.form-container {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+
+.form-container h1 {
+    margin-top: 0;
+    color: #1a2a4c;
+}
+
+.form-container input[type="text"],
+.form-container input[type="password"],
+.form-container textarea {
+    width: calc(100% - 20px);
+    padding: 10px;
+    margin-bottom: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box; /* Padding'in genişliği etkilememesi için */
+}
+
+.form-container button {
+    width: 100%;
+    padding: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+.form-container button:hover {
+    background-color: #0056b3;
+}
+
+/* --- Sohbet Ekranı --- */
+#chat-view {
+    flex-direction: row;
+    height: 100vh;
+    max-width: 1200px;
+    margin: auto;
+    background: #fff;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+#sidebar {
+    width: 300px;
+    background-color: #2c3e50;
+    color: white;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #bdc3c7;
+}
+
+#user-profile {
+    display: flex;
+    align-items: center;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #34495e;
+    margin-bottom: 1rem;
+}
+
+#user-profile img {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    margin-right: 10px;
+    background-color: #ecf0f1;
+    object-fit: cover; /* Resmin bozulmaması için */
+}
+
+#sidebar-actions button {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#sidebar-actions button:hover {
+    background-color: #2980b9;
+}
+
+#friend-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+#friend-list li {
+    padding: 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s;
+}
+
+#friend-list li:hover {
+    background-color: #34495e;
+}
+
+#friend-list li.active {
+    background-color: #3498db;
+}
+
+#friend-list img {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    margin-right: 10px;
+    object-fit: cover;
+}
+
+#main-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+#chat-header {
+    padding: 1rem;
+    background-color: #ecf0f1;
+    border-bottom: 1px solid #bdc3c7;
+    font-weight: bold;
+}
+
+#chat-window {
+    flex-grow: 1;
+    padding: 1rem;
+    overflow-y: auto;
+    background-color: #e9ebee;
+}
+
+#messages {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#messages li {
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border-radius: 18px;
+    max-width: 70%;
+    clear: both;
+    line-height: 1.4;
+    word-wrap: break-word; /* Uzun kelimelerin satırı bozmasını engeller */
+}
+
+#messages li.sent {
+    background-color: #007bff;
+    color: white;
+    float: right;
+}
+
+#messages li.received {
+    background-color: #f1f0f0;
+    color: #333;
+    float: left;
+}
+
+#chat-input-container {
+    display: flex;
+    padding: 1rem;
+    border-top: 1px solid #bdc3c7;
+}
+
+#message-input {
+    flex-grow: 1;
+    border: 1px solid #ccc;
+    border-radius: 20px;
+    padding: 10px 15px;
+}
+
+#send-message-btn {
+    margin-left: 10px;
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+/* --- Profil Ayarları --- */
+.settings-container {
+    max-width: 600px;
+    text-align: left;
+}
+
+.settings-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #eee;
+}
+
+.settings-section:last-child {
+    border-bottom: none;
+}
+
+#settings-profile-pic {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: block;
+    margin-bottom: 10px;
+    object-fit: cover;
+}
+
+.settings-section button {
+    padding: 8px 15px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.back-button {
+    width: 100%;
+    background-color: #6c757d !important;
+    margin-top: 20px;
+}
+
+/* --- Modal (Açılır Pencere) --- */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 400px;
+    border-radius: 8px;
+    position: relative;
+}
+
+.close-btn {
+    color: #aaa;
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close-btn:hover,
+.close-btn:focus {
+    color: black;
+}
+
+/* --- Bildirim Kutusu --- */
+#notification-box {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 2000;
+}
+
+.notification {
+    background: #fff;
+    border-left: 5px solid #007bff;
+    padding: 15px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    border-radius: 4px;
+    animation: slideIn 0.5s ease-out;
+}
+
+.notification.error {
+    border-left-color: #dc3545;
+}
+
+.notification.success {
+    border-left-color: #28a745;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
