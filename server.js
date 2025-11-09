@@ -199,7 +199,16 @@ io.on('connection', (socket) => {
                     console.log(`[DEBUG] Hedef kullanıcının (ID=${friend.id}) socket ID'si aranıyor... Bulunan: ${targetSocketId}`);
 
                     if (targetSocketId) {
-                        getUserInfo(socket.userId, (userInfo) => {
+                        // --- DÜZELTİLMİŞ KISIM ---
+                        getUserInfo(socket.userId, (err, userInfo) => {
+                            if (err) {
+                                console.error("[DEBUG] Kullanıcı bilgisi alınırken veritabanı hatası:", err);
+                                return;
+                            }
+                            if (!userInfo) {
+                                console.error("[DEBUG] Bildirim gönderilecek kullanıcı bulunamadı:", socket.userId);
+                                return;
+                            }
                             console.log(`[DEBUG] Bildirim gönderiliyor:`, userInfo);
                             io.to(targetSocketId).emit('friend_request_received', userInfo);
                         });
