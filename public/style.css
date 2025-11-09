@@ -14,13 +14,13 @@ body {
 }
 
 .view {
-    display: none; /* Tüm 'sayfaları' varsayılan olarak gizle */
+    display: none;
     width: 100%;
     height: 100%;
 }
 
 .view.active {
-    display: flex; /* Sadece 'active' sınıfına sahip olanı göster */
+    display: flex;
 }
 
 /* --- Giriş ve Kayıt Formları --- */
@@ -47,7 +47,7 @@ body {
     margin-bottom: 1rem;
     border: 1px solid #ccc;
     border-radius: 4px;
-    box-sizing: border-box; /* Padding'in genişliği etkilememesi için */
+    box-sizing: border-box;
 }
 
 .form-container button {
@@ -100,7 +100,7 @@ body {
     border-radius: 50%;
     margin-right: 10px;
     background-color: #ecf0f1;
-    object-fit: cover; /* Resmin bozulmaması için */
+    object-fit: cover;
 }
 
 #sidebar-actions button {
@@ -184,7 +184,7 @@ body {
     max-width: 70%;
     clear: both;
     line-height: 1.4;
-    word-wrap: break-word; /* Uzun kelimelerin satırı bozmasını engeller */
+    word-wrap: break-word;
 }
 
 #messages li.sent {
@@ -203,6 +203,21 @@ body {
     display: flex;
     padding: 1rem;
     border-top: 1px solid #bdc3c7;
+    align-items: center;
+}
+
+#attach-file-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0 10px;
+    color: #555;
+    transition: color 0.2s;
+}
+
+#attach-file-btn:hover {
+    color: #007bff;
 }
 
 #message-input {
@@ -220,6 +235,32 @@ body {
     border: none;
     border-radius: 20px;
     cursor: pointer;
+}
+
+/* --- Dosya Gösterimi --- */
+#messages li img {
+    max-width: 300px;
+    max-height: 300px;
+    border-radius: 8px;
+    display: block;
+    margin-top: 5px;
+    cursor: pointer;
+}
+
+#messages li a {
+    color: #007bff;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 12px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    margin-top: 5px;
+}
+
+#messages li a:hover {
+    background-color: #dee2e6;
 }
 
 /* --- Profil Ayarları --- */
