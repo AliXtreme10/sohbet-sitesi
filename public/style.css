@@ -50,6 +50,23 @@ body {
     box-sizing: border-box;
 }
 
+/* --- YENİ: "Beni Hatırla" Stilleri --- */
+.remember-me-container {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 1rem;
+    width: 100%;
+}
+
+#remember-me {
+    margin-right: 0.5rem;
+}
+
+#remember-me + label {
+    font-size: 0.9em;
+    color: #555;
+}
+
 .form-container button {
     width: 100%;
     padding: 10px;
@@ -88,6 +105,7 @@ body {
 
 #user-profile {
     display: flex;
+    flex-direction: column;
     align-items: center;
     padding-bottom: 1rem;
     border-bottom: 1px solid #34495e;
@@ -98,9 +116,39 @@ body {
     width: 50px;
     height: 50px;
     border-radius: 50%;
-    margin-right: 10px;
+    margin-bottom: 0.5rem;
     background-color: #ecf0f1;
     object-fit: cover;
+}
+
+#user-profile .user-info {
+    text-align: center;
+}
+
+#my-nickname {
+    font-weight: bold;
+    margin: 0;
+}
+
+#my-username {
+    font-size: 0.8em;
+    color: #bdc3c7;
+}
+
+.logout-btn {
+    background: none;
+    border: 1px solid #dc3545;
+    color: #dc3545;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8em;
+    margin-top: 0.5rem;
+    transition: background-color 0.2s;
+}
+
+.logout-btn:hover {
+    background-color: #c82333;
 }
 
 #sidebar-actions button {
@@ -402,7 +450,7 @@ body {
     to { transform: translateX(0); opacity: 1; }
 }
 
-/* --- YENİ: Video Arama Modalı Stilleri --- */
+/* --- Video Arama Modalı Stilleri --- */
 .video-modal-content {
     width: 90%;
     max-width: 800px;
@@ -432,7 +480,7 @@ body {
 }
 
 #local-video {
-    transform: scaleX(-1); /* Yansıtma efekti */
+    transform: scaleX(-1);
     opacity: 0.7;
 }
 
