@@ -15,6 +15,11 @@
                 <form id="login-form">
                     <input type="text" id="login-username" placeholder="Kullanıcı Adı" required>
                     <input type="password" id="login-password" placeholder="Şifre" required>
+                    <!-- YENİ: "Beni Hatırla" Checkbox -->
+                    <div class="remember-me-container">
+                        <input type="checkbox" id="remember-me" name="rememberMe" checked>
+                        <label for="remember-me">Beni Hatırla</label>
+                    </div>
                     <button type="submit">Giriş Yap</button>
                 </form>
                 <p>Hesabınız yok mu? <a href="#" id="show-register">Kayıt Ol</a></p>
@@ -26,7 +31,7 @@
             <div class="form-container">
                 <h1>Kayıt Ol</h1>
                 <form id="register-form">
-                    <input type="text" id="register-username" placeholder="Kullanıcı Adı (Benzersiz)" required>
+                    <input type="text" id="register-username" placeholder="Kincil Adı (Benzersiz)" required>
                     <input type="text" id="register-nickname" placeholder="Takma Ad (Herkes görebilir)">
                     <input type="password" id="register-password" placeholder="Şifre" required>
                     <input type="password" id="register-password-confirm" placeholder="Şifre Tekrarı" required>
@@ -44,6 +49,8 @@
                     <div>
                         <div id="my-nickname"></div>
                         <small id="my-username"></small>
+                        <!-- YENİ: Çıkış Yap Butonu -->
+                        <button id="logout-btn" class="logout-btn">Çıkış Yap</button>
                     </div>
                 </div>
                 <div id="sidebar-actions">
@@ -68,7 +75,6 @@
                 <div id="chat-input-container">
                     <button id="attach-file-btn" title="Dosya Ekle">📎</button>
                     <input type="file" id="file-input" style="display: none;" accept="image/*, .pdf, .doc, .docx, .txt">
-                    <!-- YENİ: Video Arama Butonu -->
                     <button id="video-call-btn" title="Video Arama" disabled>📹</button>
                     <input type="text" id="message-input" placeholder="Mesajınızı yazın..." disabled>
                     <button id="send-message-btn" disabled>Gönder</button>
@@ -120,7 +126,7 @@
         </div>
     </div>
 
-    <!-- YENİ: Video Arama Modalı -->
+    <!-- Video Arama Modalı -->
     <div id="video-call-modal" class="modal">
         <div class="modal-content video-modal-content">
             <span class="close-btn">&times;</span>
