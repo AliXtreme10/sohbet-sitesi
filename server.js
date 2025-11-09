@@ -346,6 +346,7 @@ function getUserInfo(userId, callback) {
     db.get(sql, [userId], callback);
 }
 
+// --- SON DÜZELTME: getFriendList FONKSİYONU ---
 function getFriendList(userId, callback) {
     const sql = `
         SELECT u.id, u.username, u.nickname, u.profile_pic, u.description
@@ -353,7 +354,14 @@ function getFriendList(userId, callback) {
         JOIN friendships f ON (u.id = f.user_id1 OR u.id = f.user_id2)
         WHERE (f.user_id1 = ? OR f.user_id2 = ?) AND u.id != ? AND f.status = 'accepted'
     `;
-    db.all(sql, [userId, userId, userId], callback);
+    db.all(sql, [userId, userId, userId], (err, rows) => {
+        if (err) {
+            console.error("[DEBUG] Arkadaş listesi alınırken veritabanı hatası:", err);
+            callback(null); // Hata durumunda null gönder
+            return;
+        }
+        callback(rows); // Başarılı olursa arkadaş listesini gönder
+    });
 }
 
 // --- SUNUCUYU BAŞLATMA ---
