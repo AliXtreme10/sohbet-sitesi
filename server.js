@@ -312,6 +312,21 @@ io.on('connection', (socket) => {
         });
     });
 
+    // --- YENİ ÖZELLİK: Kullanıcı Yazıyor Bildirimleri ---
+    socket.on('typing_start', ({ receiverId }) => {
+        const receiverSocketId = connectedUsers[receiverId];
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit('display_typing', { senderId: socket.userId, isTyping: true });
+        }
+    });
+
+    socket.on('typing_stop', ({ receiverId }) => {
+        const receiverSocketId = connectedUsers[receiverId];
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit('display_typing', { senderId: socket.userId, isTyping: false });
+        }
+    });
+
     // Durum Güncellemesi Paylaşma
     socket.on('share_status', (content) => {
         const sql = 'INSERT INTO status_updates (user_id, content) VALUES (?, ?)';
