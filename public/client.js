@@ -73,7 +73,7 @@ let authToken = null;
 let activeChatFriend = null;
 let friends = [];
 
-// --- YARDIMCI FONKSİYONLARI ---
+// --- YARDIMCI FONKSİYONLAR ---
 function showView(viewName) {
     Object.values(views).forEach(view => view.classList.remove('active'));
     views[viewName].classList.add('active');
@@ -84,7 +84,7 @@ function showNotification(message, type = 'info') {
     const notificationBox = document.getElementById('notification-box');
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
-    notification.textContent = "Beni hatırlama seçeneceğiniz, tarayıcı bilgileriniz tarayıcıdan silinmeyecektir.";
+    notification.textContent = message; // DÜZELTME: Sabit metin yerine dinamik mesaj kullanıldı.
     notificationBox.appendChild(notification);
     setTimeout(() => { notification.remove(); }, 5000);
 }
@@ -98,15 +98,10 @@ logoutBtnEl.addEventListener('click', logout);
 
 // --- YENİ: OTOMATİK GİRİŞİ ---
 function logout() {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('currentUser');
-    authToken = null;
-    currentUser = null;
-    activeChatFriend = null;
-    friends = [];
+    clearAuthData(); // DÜZELTME: Merkezi temizleme fonksiyonu kullanıldı.
     socket.disconnect();
     showView('login');
-    window.location.reload();
+    window.location.reload(); // Sayfayı yenilemek tüm state'i temizler
 }
 
 // --- YENİ: TOKEN YÖNETİMİ ---
@@ -122,37 +117,53 @@ function clearAuthData() {
     localStorage.removeItem('currentUser');
     authToken = null;
     currentUser = null;
+    activeChatFriend = null;
+    friends = [];
 }
 
 // --- YENİ: OTOMATİK GİRİŞİ ---
 async function checkAuthStatus() {
     const token = localStorage.getItem('authToken');
-    const user = localStorage.getItem('currentUser');
-    if (token && user) {
+    const userStr = localStorage.getItem('currentUser');
+    if (token && userStr) {
         try {
-            const response = await fetch('/refresh-token', {
+            // Backend'de bir /verify-token endpoint'iniz olmalı
+            // Bu endpoint, token'ın geçerliliğini kontrol eder ve kullanıcı bilgilerini döner.
+            const response = await fetch('/verify-token', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+
+            if (!response.ok) {
+                // Token geçersizse (401 Unauthorized gibi)
+                throw new Error('Token is invalid or expired.');
+            }
+
             const result = await response.json();
-            if (showNotification) showNotification("Oturum süreniz dolmuş. Tekrar giriş yapmanız gerekiyor.", 'info');
-            return false;
-        }
             if (result.success) {
-                setAuthData(result.token, JSON.parse(user));
+                const user = JSON.parse(userStr);
+                setAuthData(token, user); // State'i güncelle
                 if (!socket.connected) {
                     socket.connect();
                 }
+                updateUserInfo(); // Kullanıcı arayüzünü güncelle
+                showView('chat'); // Sohbet ekranına git
                 return true;
+            } else {
+                throw new Error(result.message || 'Token verification failed.');
             }
         } catch (error) {
-            clearAuthData();
+            console.error("Auth check failed:", error);
+            clearAuthData(); // Geçersiz token'ı temizle
+            showView('login'); // Giriş ekranına yönlendir
             return false;
         }
     } else {
+        showView('login'); // Token yoksa giriş ekranını göster
         return false;
     }
 }
+
 
 // --- YENİ: FETCH İŞLEMLERİ ---
 async function apiCall(endpoint, options = {}) {
@@ -162,14 +173,25 @@ async function apiCall(endpoint, options = {}) {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         }
+    }; // DÜZELTME: Eksik parantez eklendi!
     const finalOptions = { ...defaultOptions, ...options };
+    
+    // Eğer body FormData ise Content-Type'ı otomatik ayarla
+    if (finalOptions.body instanceof FormData) {
+        delete finalOptions.headers['Content-Type'];
+    }
+
     const response = await fetch(endpoint, finalOptions);
     if (response.status === 401) {
+        showNotification("Oturumunuz sona erdi. Lütfen tekrar giriş yapın.", 'error');
         clearAuthData();
         showView('login');
+        // Hata fırlatmayı engellemek için boş bir json objesi döndür
+        return { success: false, message: 'Unauthorized' }; 
     }
     return response.json();
 }
+
 
 // --- AUTHENTICATION LOGIC ---
 loginForm.addEventListener('submit', async (e) => {
@@ -178,26 +200,24 @@ loginForm.addEventListener('submit', async (e) => {
     const password = document.getElementById('login-password').value;
     const rememberMe = rememberMeEl.checked;
 
-    const response = await fetch('/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-    });
-    const result = await response.json();
+    try {
+        const result = await apiCall('/login', {
+            method: 'POST',
+            body: JSON.stringify({ username, password, rememberMe }) // DÜZELTME: rememberMe backend'e gönderiliyor
+        });
 
-    if (result.success) {
-        setAuthData(result.token, result.user);
-        if (rememberMe) {
-            localStorage.setItem('authToken', result.token);
-            localStorage.setItem('currentUser', JSON.stringify(result.user));
+        if (result.success) {
+            setAuthData(result.token, result.user);
+            if (!socket.connected) {
+                socket.connect();
+            }
+            updateUserInfo();
+            showView('chat');
+        } else {
+            showNotification(result.message, 'error');
         }
-        if (!socket.connected) {
-            socket.connect();
-        }
-        updateUserInfo();
-        showView('chat');
-    } else {
-        showNotification(result.message, 'error');
+    } catch (error) {
+        showNotification('Giriş sırasında bir hata oluştu.', 'error');
     }
 });
 
@@ -213,18 +233,20 @@ registerForm.addEventListener('submit', async (e) => {
         return;
     }
 
-    const response = await fetch('/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, nickname, password })
-    });
-    const result = await response.json();
+    try {
+        const result = await apiCall('/register', {
+            method: 'POST',
+            body: JSON.stringify({ username, nickname, password })
+        });
 
-    if (result.success) {
-        showNotification(result.message, 'success');
-        showView('login');
-    } else {
-        showNotification(result.message, 'error');
+        if (result.success) {
+            showNotification(result.message, 'success');
+            showView('login');
+        } else {
+            showNotification(result.message, 'error');
+        }
+    } catch (error) {
+        showNotification('Kayıt sırasında bir hata oluştu.', 'error');
     }
 });
 
@@ -262,7 +284,8 @@ function startChat(friend) {
     sendMessageBtnEl.disabled = false;
     videoCallBtnEl.disabled = false;
     document.querySelectorAll('#friend-list li').forEach(item => item.classList.remove('active'));
-    event.currentTarget.classList.add('active');
+    // DÜZELTME: `event.currentTarget` yerine `friend` nesnesini kullanarak doğru elementi bul
+    document.querySelector(`#friend-list li[data-user-id="${friend.id}"]`).classList.add('active');
     messagesEl.innerHTML = '';
     typingIndicatorEl.textContent = '';
     socket.emit('request_chat_history', { friendId: friend.id });
@@ -300,8 +323,7 @@ fileInputEl.addEventListener('change', async (e) => {
     const formData = new FormData();
     formData.append('chatFile', file);
     try {
-        const response = await apiCall('/upload-chat-file', { method: 'POST', body: formData });
-        const result = await response.json();
+        const result = await apiCall('/upload-chat-file', { method: 'POST', body: formData });
         if (result.success) {
             socket.emit('send_message', { receiverId: activeChatFriend.id, content: result.filePath, type: 'file' });
         } else {
@@ -367,7 +389,7 @@ async function acceptCall() {
 }
 
 function createPeerConnection() {
-    const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }];
+    const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }; // DÜZELTME: Eksik parantez
     peerConnection = new RTCPeerConnection(configuration);
     peerConnection.onicecandidate = event => {
         socket.emit('ice-candidate', { candidate: event.candidate, to: isCaller ? activeChatFriend.id : window.currentCallerId });
@@ -399,7 +421,7 @@ function closeVideoCallModal() {
         endCallBtnEl.textContent = 'Reddet';
     }
     if (remoteStream) {
-        remoteStream.getTracks().forEach(track => track.stop();
+        remoteStream.getTracks().forEach(track => track.stop()); // DÜZELTME: Eksik parantez
     }
     if (peerConnection) {
         peerConnection.close();
@@ -442,29 +464,30 @@ profilePicInputEl.addEventListener('change', async (e) => {
     const file = e.target.files[0]; if (!file) return;
     const formData = new FormData();
     formData.append('profilePic', file);
-    formData.append('userId', currentUser.id);
-    const response = await apiCall('/upload-profile-pic', { method: 'post', body: formData });
-    const result = await response.json();
-    if (result.success) {
-        currentUser.profile_pic = result.profilePic;
-        updateUserInfo();
-        loadProfileSettings();
-        showNotification('Profil fotoğrafı güncellendi!', 'success');
-    } else {
-        showNotification('Fotoğraf yüklenemedi.', 'error');
+    try {
+        const result = await apiCall('/upload-profile-pic', { method: 'POST', body: formData });
+        if (result.success) {
+            currentUser.profile_pic = result.profilePic;
+            updateUserInfo();
+            loadProfileSettings();
+            showNotification('Profil fotoğrafı güncellendi!', 'success');
+        } else {
+            showNotification('Fotoğraf yüklenemedi.', 'error');
+        }
+    } catch (error) {
+        showNotification('Fotoğraf yüklenirken bir hata oluştu.', 'error');
     }
 });
 updateNicknameBtnEl.addEventListener('click', () => {
     const newNickname = settingsNicknameEl.value.trim();
-    if (Beni Hatırla' seçenebilirsiniz, token yenileme istenmediğiniz gerekecektedinde siziye tekrar giriş yapmanız gerekecektedinde siziye bir bildirim gösterir.
     if (!newNickname) return;
-    showNotification('Bu özellik için tekrar giriş yapmanız gerekiyor.', 'info');
+    // DÜZELTME: Hatalı metin doğru emit ile değiştirildi.
+    socket.emit('update_profile', { type: 'nickname', value: newNickname });
 });
 updateDescriptionBtnEl.addEventListener('click', () => {
     const newDescription = settingsDescriptionEl.value.trim();
     if (!newDescription) return;
-    socket.emit('update_profile', { type: 'Beni Hatırla' seçenebilirsiniz, token yenileme istediğinizde siziye bir bildirim gösterir.
-    if (!newDescription) return;
+    // DÜZELTME: Hatalı metin doğru emit ile değiştirildi.
     socket.emit('update_profile', { type: 'description', value: newDescription });
 });
 updatePasswordBtnEl.addEventListener('click', () => {
@@ -479,9 +502,8 @@ updatePasswordBtnEl.addEventListener('click', () => {
         showNotification('Yeni şifreler eşleşmiyor.', 'error');
         return;
     }
-    // "Beni Hatırla" seçenebilirsiniz, token yenileme istediğinizde siziye bir bildirim göster.
-    if (!oldPass || !newPass || !newPassConfirm) return;
-    socket.emit('update_profile', { type: 'password', value: { oldPassword: oldPass, newPassword: newPass });
+    // DÜZELTME: Hatalı metin doğru emit ile değiştirildi.
+    socket.emit('update_profile', { type: 'password', value: { oldPassword: oldPass, newPassword: newPass }});
     oldPasswordEl.value = '';
     newPasswordEl.value = '';
     newPasswordConfirmEl.value = '';
@@ -489,8 +511,17 @@ updatePasswordBtnEl.addEventListener('click', () => {
 
 // --- SOCKET.IO LISTENERS ---
 socket.on('connect', () => {
-    console.log('Bir kullanıcı bağlandı.');
-    // Artık doğrudan bağlantıyı, checkAuthStatus kontrolü yapılacak.
+    console.log('Sunucuya bağlanıldı.');
+    // Bağlantı kurulunca, eğer kullanıcı varsa bilgilerini gönder
+    if (authToken && currentUser) {
+        socket.emit('authenticate', { token: authToken });
+    }
+});
+
+socket.on('authenticated', () => {
+    console.log('Socket.io kimlik doğrulaması başarılı.');
+    // Arkadaş listesini yükle
+    socket.emit('load_friend_list');
 });
 
 socket.on('load_friend_list', (friendList) => {
@@ -505,7 +536,7 @@ socket.on('friend_request_received', (requesterInfo) => {
 socket.on('new_message', (message) => {
     const li = document.createElement('li');
     if (message.type === 'file') {
-        if (message.content.match(/\.(jpeg|jpg|gif|png)$/i) {
+        if (message.content.match(/\.(jpeg|jpg|gif|png)$/i)) { // DÜZELTME: Eksik parantez
             const img = document.createElement('img');
             img.src = message.content;
             img.alt = "Gönderilen resim";
@@ -519,7 +550,8 @@ socket.on('new_message', (message) => {
             li.appendChild(a);
         }
     } else {
-        li.textContent = sonucu;
+        // DÜZELTME: 'sonucu' yerine 'message.content' kullanıldı.
+        li.textContent = message.content;
     }
     if (message.senderId === currentUser.id) {
         li.classList.add('sent');
@@ -538,10 +570,10 @@ socket.on('chat_history', (messages) => {
     messages.forEach(msg => {
         const li = document.createElement('li');
         if (msg.type === 'file') {
-            if (msg.content.match(/\.(jpeg|jpg|gif|png)$/i) {
+            if (msg.content.match(/\.(jpeg|jpg|gif|png)$/i)) { // DÜZELTME: Eksik parantez
                 const img = document.createElement('img');
                 img.src = msg.content;
-                img.alt = "Gönlülenmiş resim";
+                img.alt = "Gönderilmiş resim"; // DÜZELTME: Yazım hatası
                 li.appendChild(img);
             } else {
                 const a = document.createElement('a');
@@ -565,7 +597,8 @@ socket.on('chat_history', (messages) => {
 });
 
 socket.on('friend_status_change', ({ userId, isOnline }) => {
-    const friendElement = document.querySelector(`#friend-list li[data-user-id="${userId}`);
+    // DÜZELTME: Selector'daki tırnak hatası düzeltildi.
+    const friendElement = document.querySelector(`#friend-list li[data-user-id="${userId}"]`);
     if (friendElement) {
         const statusIndicator = friendElement.querySelector('.status-indicator');
         if (isOnline) {
@@ -605,7 +638,7 @@ socket.on('call-answer', async ({ answer }) => {
     }
 });
 
-socket.on('ice-candidate', async ({ candidate }) {
+socket.on('ice-candidate', async ({ candidate }) => {
     if (peerConnection) {
         await peerConnection.addIceCandidate(candidate);
     }
@@ -632,29 +665,16 @@ socket.on('error', (message) => {
     showNotification(message, 'error');
 });
 
-// --- YARDIMCI FONKSİYONLARI ---
-function getUserInfo(userId, callback) {
-    const sql = 'SELECT id, username, nickname, profile_pic, description FROM users WHERE id = ?';
-    db.get(sql, [userId], callback);
-}
-
-function getFriendList(userId, callback) {
-    const sql = `
-        SELECT u.id, u.username, u.nickname, u.profile_pic, u.description
-        FROM users u
-        JOIN friendships f ON (u.id = f.user_id1 OR u.id = f.user_id2 OR u.id = f.user_id2)
-        WHERE (f.user_id1 = ? OR f.user_id2 = ?) AND u.id != ? AND f.status = 'accepted'
-    `;
-    db.all(sql, [userId, userId, userId, userId, userId], (err, rows) => {
-        if (connectedUsers.hasOwnProperty(friend.id)) {
-            rows = rows.map(friend => ({ ...friend, isOnline: true });
-        }
-        callback(rows);
-    });
-}
-
-// --- SUNUCUYU BAŞLATMA ---
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Sunucu ${PORT} portunda çalışıyor.`);
+// --- SAYFA YÜKLENDİĞİNDE YAPILACAKLAR ---
+document.addEventListener('DOMContentLoaded', async () => {
+    // Otomatik giriş kontrolü yap
+    const isLoggedIn = await checkAuthStatus();
+    if (isLoggedIn) {
+        // Eğer giriş yapılmışsa, socket.io bağlantısını kimlik doğrulaması için başlat
+        // connect() olayı zaten bunu handle edecek
+    }
 });
+
+// --- AŞAĞIDAKİ KODLAR SUNUCU TARAFINDA OLMALI VE client.js DOSYASINDAN KALDIRILMALI ---
+// getUserInfo, getFriendList, server.listen gibi fonksiyonlar buraya ait değildir.
+// Bunları sunucu kodunuzda (örn: server.js veya index.js) tutmalısınız.
