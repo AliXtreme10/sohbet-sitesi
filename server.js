@@ -30,8 +30,10 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // --- JWT AYARLARI ---
-const JWT_SECRET = process.env.JWT_SECRET || 'gizli-bir-sifre'; // Gerçek bir projede environment variable kullanın
-const JWT_EXPIRES_IN = '7d'; // Tokenın geçerlilik süresi
+const JWT_SECRET = process.env.JWT_SECRET || 'gizli-bir-sifre'; // Gerçek bir projede environment variable kullanın!
+// Varsayılan olarak daha kısa bir süre belirleyelim, "Beni Hatırla" seçeneğinde bu değişecek.
+const JWT_EXPIRES_IN_SHORT = '1h'; // 1 saat
+const JWT_EXPIRES_IN_LONG = '30d'; // 30 gün
 
 // JWT doğrulama middleware'i
 const authenticateToken = (req, res, next) => {
@@ -122,9 +124,9 @@ app.post('/register', async (req, res) => {
     }
 });
 
-// Giriş Yapma Rotası (JWT oluşturur)
+// Giriş Yapma Rotası (JWT oluşturur) - DÜZELTİLDİ
 app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
+    const { username, password, rememberMe } = req.body; // DÜZELTME: rememberMe alınıyor
     const sql = 'SELECT * FROM users WHERE username = ?';
     db.get(sql, [username], async (err, user) => {
         if (err || !user) {
@@ -132,7 +134,9 @@ app.post('/login', async (req, res) => {
         }
         const match = await bcrypt.compare(password, user.password_hash);
         if (match) {
-            const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+            // DÜZELTME: rememberMe durumuna göre token süresi ayarlanıyor
+            const expiresIn = rememberMe ? JWT_EXPIRES_IN_LONG : JWT_EXPIRES_IN_SHORT;
+            const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: expiresIn });
             res.json({ success: true, token: token, user: { id: user.id, username: user.username, nickname: user.nickname, profile_pic: user.profile_pic } });
         } else {
             res.status(401).json({ success: false, message: 'Kullanıcı adı veya şifre hatalı.' });
@@ -140,18 +144,25 @@ app.post('/login', async (req, res) => {
     });
 });
 
+// --- YENİ: Token Doğrulama Rotası ---
+app.post('/verify-token', authenticateToken, (req, res) => {
+    // Middleware zaten token'ı doğruladı.
+    // Eğer kod bu satıra ulaştıysa, token geçerlidir.
+    res.json({ success: true });
+});
+
 // Token Yenileme Rotası
 app.post('/refresh-token', authenticateToken, (req, res) => {
-    const token = jwt.sign({ id: req.user.id, username: req.user.username }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    const token = jwt.sign({ id: req.user.id, username: req.user.username }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN_LONG });
     res.json({ success: true, token: token });
 });
 
-// Profil Fotoğrafı Yükleme Rotası
-app.post('/upload-profile-pic', upload.single('profilePic'), (req, res) => {
+// Profil Fotoğrafı Yükleme Rotası - DÜZELTİLDİ
+app.post('/upload-profile-pic', authenticateToken, upload.single('profilePic'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ success: false, message: 'Dosya yüklenmedi.' });
     }
-    const userId = req.user.id; // authenticateToken sayesinde req.user artık mevcut
+    const userId = req.user.id; // Artık güvenli bir şekilde erişilebilir
     const filePath = `/uploads/${req.file.filename}`;
     const sql = 'UPDATE users SET profile_pic = ? WHERE id = ?';
     db.run(sql, [filePath, userId], (err) => {
@@ -162,8 +173,8 @@ app.post('/upload-profile-pic', upload.single('profilePic'), (req, res) => {
     });
 });
 
-// Sohbet Dosyası Yükleme Rotası
-app.post('/upload-chat-file', upload.single('chatFile'), (req, res) => {
+// Sohbet Dosyası Yükleme Rotası - DÜZELTİLDİ (güvenlik için)
+app.post('/upload-chat-file', authenticateToken, upload.single('chatFile'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ success: false, message: 'Dosya seçilmedi.' });
     }
@@ -191,6 +202,13 @@ const connectedUsers = {}; // { userId: socketId }
 
 io.on('connection', (socket) => {
     console.log(`[DEBUG] ${socket.username} (${socket.userId}) bağlandı.`);
+    // DÜZELTME: Kullanıcı bağlandığında connectedUsers nesnesini güncelle
+    connectedUsers[socket.userId] = socket.id;
+    
+    // Bağlantı kurulunca arkadaş listesini gönder
+    getFriendList(socket.userId, (friends) => {
+        socket.emit('load_friend_list', friends);
+    });
 
     socket.on('disconnect', () => {
         console.log(`[DEBUG] ${socket.username} (${socket.userId}) ayrıldı.`);
@@ -392,6 +410,7 @@ function getFriendList(userId, callback) {
         JOIN friendships f ON (u.id = f.user_id1 OR u.id = f.user_id2)
         WHERE (f.user_id1 = ? OR f.user_id2 = ?) AND u.id != ? AND f.status = 'accepted'
     `;
+    // DÜZELTME: Eksik parantez eklendi
     db.all(sql, [userId, userId, userId], (err, rows) => {
         if (err) {
             console.error("[DEBUG] Arkadaş listesi alınırken veritabanı hatası:", err);
@@ -402,7 +421,9 @@ function getFriendList(userId, callback) {
             return { ...friend, isOnline: connectedUsers.hasOwnProperty(friend.id) };
         });
         callback(friendsWithStatus);
-    }
+    });
+}
+
 // --- SUNUCUYU BAŞLATMA ---
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, '0.0.0.0', () => {
