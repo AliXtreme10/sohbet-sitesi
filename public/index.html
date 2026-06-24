@@ -8,14 +8,12 @@
 </head>
 <body>
     <div id="app-container">
-        <!-- Giriş Ekranı -->
         <div id="login-view" class="view active">
             <div class="form-container">
                 <h1>Giriş Yap</h1>
                 <form id="login-form">
                     <input type="text" id="login-username" placeholder="Kullanıcı Adı" required>
                     <input type="password" id="login-password" placeholder="Şifre" required>
-                    <!-- YENİ: "Beni Hatırla" Checkbox -->
                     <div class="remember-me-container">
                         <input type="checkbox" id="remember-me" name="rememberMe" checked>
                         <label for="remember-me">Beni Hatırla</label>
@@ -26,7 +24,6 @@
             </div>
         </div>
 
-        <!-- Kayıt Ekranı -->
         <div id="register-view" class="view">
             <div class="form-container">
                 <h1>Kayıt Ol</h1>
@@ -41,7 +38,6 @@
             </div>
         </div>
 
-        <!-- Sohbet Ana Ekranı -->
         <div id="chat-view" class="view">
             <div id="sidebar">
                 <div id="user-profile">
@@ -49,7 +45,6 @@
                     <div>
                         <div id="my-nickname"></div>
                         <small id="my-username"></small>
-                        <!-- YENİ: Çıkış Yap Butonu -->
                         <button id="logout-btn" class="logout-btn">Çıkış Yap</button>
                     </div>
                 </div>
@@ -57,20 +52,25 @@
                     <button id="add-friend-btn">+ Arkadaş Ekle</button>
                     <button id="profile-settings-btn">Profil Ayarları</button>
                 </div>
+
+                <div id="pending-requests-section" style="margin-bottom: 15px;">
+                    <h3>Gelen İstekler</h3>
+                    <ul id="pending-requests-list" style="list-style: none; padding: 0; margin: 0;">
+                        </ul>
+                </div>
+
                 <h3>Arkadaşlarım</h3>
                 <ul id="friend-list">
-                    <!-- Arkadaş listesi JavaScript ile doldurulacak -->
-                </ul>
+                    </ul>
             </div>
             <div id="main-content">
                 <div id="chat-header">
-                    <span id="active-chat-name">Sohbet etmek için bir arkadaş seçin.</span>
+                    <span id="active-chat-name">Sohbet etmek için bir friend seçin.</span>
                     <span id="typing-indicator"></span>
                 </div>
                 <div id="chat-window">
                     <ul id="messages">
-                        <!-- Mesajlar JavaScript ile doldurulacak -->
-                    </ul>
+                        </ul>
                 </div>
                 <div id="chat-input-container">
                     <button id="attach-file-btn" title="Dosya Ekle">📎</button>
@@ -82,7 +82,6 @@
             </div>
         </div>
 
-        <!-- Profil Ayarları Ekranı -->
         <div id="profile-settings-view" class="view">
             <div class="form-container settings-container">
                 <h1>Profil Ayarları</h1>
@@ -113,10 +112,8 @@
         </div>
     </div>
 
-    <!-- Bildirim Kutusu -->
     <div id="notification-box"></div>
 
-    <!-- Arkadaş Ekleme Modalı -->
     <div id="add-friend-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn">&times;</span>
@@ -126,7 +123,6 @@
         </div>
     </div>
 
-    <!-- Video Arama Modalı -->
     <div id="video-call-modal" class="modal">
         <div class="modal-content video-modal-content">
             <span class="close-btn">&times;</span>
