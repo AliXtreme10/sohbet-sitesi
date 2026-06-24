@@ -260,7 +260,7 @@ body {
 }
 
 #messages li.sent {
-    background-color: #007bff;
+    background-color: #128C7E;
     color: white;
     float: right;
 }
@@ -526,4 +526,63 @@ body {
 
 .end-btn:hover {
     background-color: #c82333;
+}
+/* --- YENİ: Bekleyen Arkadaşlık İstekleri Alanı Stilleri --- */
+#sidebar h3 {
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #bdc3c7;
+    margin: 1.5rem 0 0.5rem 0;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #34495e;
+}
+
+#pending-requests-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 150px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+}
+
+#pending-requests-list li {
+    background-color: #34495e;
+    border-radius: 6px;
+    padding: 8px !important;
+    margin-bottom: 6px !important;
+    border: none !important; /* JS'teki border'ı eziyoruz */
+    transition: background-color 0.2s ease;
+}
+
+#pending-requests-list li:hover {
+    background-color: #3d566e;
+}
+
+#pending-requests-list button {
+    font-weight: bold;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    transition: transform 0.1s ease, filter 0.2s ease;
+}
+
+#pending-requests-list button:hover {
+    filter: brightness(1.1);
+}
+
+#pending-requests-list button:active {
+    transform: scale(0.95);
+}
+
+/* Scrollbar Özelleştirme (Sidebar Listeleri İçin) */
+#pending-requests-list::-webkit-scrollbar,
+#friend-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+#pending-requests-list::-webkit-scrollbar-thumb,
+#friend-list::-webkit-scrollbar-thumb {
+    background-color: #4f5d73;
+    border-radius: 4px;
 }
