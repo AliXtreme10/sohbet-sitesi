@@ -23,6 +23,7 @@ const myUsernameEl = document.getElementById('my-username');
 const myNicknameEl = document.getElementById('my-nickname');
 const myProfilePicEl = document.getElementById('my-profile-pic');
 const friendListEl = document.getElementById('friend-list');
+const pendingRequestsListEl = document.getElementById('pending-requests-list'); // YENİ: Bekleyen istekler listesi
 const activeChatNameEl = document.getElementById('active-chat-name');
 const messagesEl = document.getElementById('messages');
 const messageInputEl = document.getElementById('message-input');
@@ -82,9 +83,10 @@ function showView(viewName) {
 // --- NOTIFICATIONS ---
 function showNotification(message, type = 'info') {
     const notificationBox = document.getElementById('notification-box');
+    if (!notificationBox) return;
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
-    notification.textContent = message; // DÜZELTME: Sabit metin yerine dinamik mesaj kullanıldı.
+    notification.textContent = message;
     notificationBox.appendChild(notification);
     setTimeout(() => { notification.remove(); }, 5000);
 }
@@ -96,15 +98,14 @@ profileSettingsBtnEl.addEventListener('click', () => { loadProfileSettings(); sh
 backToChatBtnEl.addEventListener('click', () => { showView('chat'); });
 logoutBtnEl.addEventListener('click', logout);
 
-// --- YENİ: OTOMATİK GİRİŞİ ---
+// --- OTOMATİK GİRİŞ / ÇIKIŞ ---
 function logout() {
-    clearAuthData(); // DÜZELTME: Merkezi temizleme fonksiyonu kullanıldı.
+    clearAuthData();
     socket.disconnect();
     showView('login');
-    window.location.reload(); // Sayfayı yenilemek tüm state'i temizler
+    window.location.reload();
 }
 
-// --- YENİ: TOKEN YÖNETİMİ ---
 function setAuthData(token, user) {
     localStorage.setItem('authToken', token);
     localStorage.setItem('currentUser', JSON.stringify(user));
@@ -121,51 +122,46 @@ function clearAuthData() {
     friends = [];
 }
 
-// --- YENİ: OTOMATİK GİRİŞİ ---
 async function checkAuthStatus() {
     const token = localStorage.getItem('authToken');
     const userStr = localStorage.getItem('currentUser');
     if (token && userStr) {
         try {
-            // Backend'de bir /verify-token endpoint'iniz olmalı
-            // Bu endpoint, token'ın geçerliliğini kontrol eder ve kullanıcı bilgilerini döner.
             const response = await fetch('/verify-token', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
 
             if (!response.ok) {
-                // Token geçersizse (401 Unauthorized gibi)
                 throw new Error('Token is invalid or expired.');
             }
 
             const result = await response.json();
             if (result.success) {
                 const user = JSON.parse(userStr);
-                setAuthData(token, user); // State'i güncelle
+                setAuthData(token, user);
                 if (!socket.connected) {
                     socket.connect();
                 }
-                updateUserInfo(); // Kullanıcı arayüzünü güncelle
-                showView('chat'); // Sohbet ekranına git
+                updateUserInfo();
+                showView('chat');
                 return true;
             } else {
                 throw new Error(result.message || 'Token verification failed.');
             }
         } catch (error) {
             console.error("Auth check failed:", error);
-            clearAuthData(); // Geçersiz token'ı temizle
-            showView('login'); // Giriş ekranına yönlendir
+            clearAuthData();
+            showView('login');
             return false;
         }
     } else {
-        showView('login'); // Token yoksa giriş ekranını göster
+        showView('login');
         return false;
     }
 }
 
-
-// --- YENİ: FETCH İŞLEMLERİ ---
+// --- FETCH İŞLEMLERİ ---
 async function apiCall(endpoint, options = {}) {
     const token = localStorage.getItem('authToken');
     const defaultOptions = {
@@ -173,10 +169,9 @@ async function apiCall(endpoint, options = {}) {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
         }
-    }; // DÜZELTME: Eksik parantez eklendi!
+    };
     const finalOptions = { ...defaultOptions, ...options };
     
-    // Eğer body FormData ise Content-Type'ı otomatik ayarla
     if (finalOptions.body instanceof FormData) {
         delete finalOptions.headers['Content-Type'];
     }
@@ -186,12 +181,10 @@ async function apiCall(endpoint, options = {}) {
         showNotification("Oturumunuz sona erdi. Lütfen tekrar giriş yapın.", 'error');
         clearAuthData();
         showView('login');
-        // Hata fırlatmayı engellemek için boş bir json objesi döndür
         return { success: false, message: 'Unauthorized' }; 
     }
     return response.json();
 }
-
 
 // --- AUTHENTICATION LOGIC ---
 loginForm.addEventListener('submit', async (e) => {
@@ -203,7 +196,7 @@ loginForm.addEventListener('submit', async (e) => {
     try {
         const result = await apiCall('/login', {
             method: 'POST',
-            body: JSON.stringify({ username, password, rememberMe }) // DÜZELTME: rememberMe backend'e gönderiliyor
+            body: JSON.stringify({ username, password, rememberMe })
         });
 
         if (result.success) {
@@ -277,6 +270,59 @@ function renderFriendList(friendList) {
     });
 }
 
+// --- YENİ: GELEN İSTEKLERİ ARAYÜZE BASMA FONKSİYONLARI ---
+function renderPendingRequests(requests) {
+    if (!pendingRequestsListEl) return;
+    pendingRequestsListEl.innerHTML = '';
+    
+    if (!requests || requests.length === 0) {
+        pendingRequestsListEl.innerHTML = '<li style="color: #888; font-size: 13px; padding: 5px;">Bekleyen istek yok.</li>';
+        return;
+    }
+    
+    requests.forEach(user => {
+        addSingleRequestToUI(user);
+    });
+}
+
+function addSingleRequestToUI(user) {
+    if (!pendingRequestsListEl) return;
+
+    if (pendingRequestsListEl.innerHTML.includes('Bekleyen istek yok')) {
+        pendingRequestsListEl.innerHTML = '';
+    }
+
+    if (document.getElementById(`request-${user.id}`)) return;
+
+    const li = document.createElement('li');
+    li.id = `request-${user.id}`;
+    li.style.cssText = "display: flex; align-items: center; justify-content: space-between; padding: 6px; border-bottom: 1px solid #333; margin-bottom: 5px;";
+    
+    li.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <img src="${user.profile_pic || '/default.png'}" width="30" height="30" style="border-radius: 50%; object-fit: cover;">
+            <span style="font-size: 13px; color: #fff;">${user.nickname || user.username}</span>
+        </div>
+        <div style="display: flex; gap: 4px;">
+            <button onclick="respondToRequest(${user.id}, true)" style="background: #25D366; color: white; border: none; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 11px;">Kabul</button>
+            <button onclick="respondToRequest(${user.id}, false)" style="background: #E53E3E; color: white; border: none; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 11px;">Red</button>
+        </div>
+    `;
+    pendingRequestsListEl.appendChild(li);
+}
+
+// HTML butonlarından tetiklenebilmesi için window nesnesine atıyoruz
+window.respondToRequest = function(requesterId, isAccepted) {
+    socket.emit('respond_to_friend_request', { requesterId: requesterId, accept: isAccepted });
+    
+    const requestRow = document.getElementById(`request-${requesterId}`);
+    if (requestRow) requestRow.remove();
+    
+    if (pendingRequestsListEl && pendingRequestsListEl.children.length === 0) {
+        pendingRequestsListEl.innerHTML = '<li style="color: #888; font-size: 13px; padding: 5px;">Bekleyen istek yok.</li>';
+    }
+};
+
 function startChat(friend) {
     activeChatFriend = friend;
     activeChatNameEl.textContent = `${friend.nickname || friend.username} ile sohbet`;
@@ -284,8 +330,10 @@ function startChat(friend) {
     sendMessageBtnEl.disabled = false;
     videoCallBtnEl.disabled = false;
     document.querySelectorAll('#friend-list li').forEach(item => item.classList.remove('active'));
-    // DÜZELTME: `event.currentTarget` yerine `friend` nesnesini kullanarak doğru elementi bul
-    document.querySelector(`#friend-list li[data-user-id="${friend.id}"]`).classList.add('active');
+    
+    const activeLi = document.querySelector(`#friend-list li[data-user-id="${friend.id}"]`);
+    if (activeLi) activeLi.classList.add('active');
+    
     messagesEl.innerHTML = '';
     typingIndicatorEl.textContent = '';
     socket.emit('request_chat_history', { friendId: friend.id });
@@ -305,6 +353,9 @@ function sendMessage() {
             type: 'text'
         });
         messageInputEl.value = '';
+        // Mesaj gönderilince karşı taraftaki "yazıyor..." göstergesi hemen kapansın
+        clearTimeout(typingTimer);
+        socket.emit('typing_stop', { receiverId: activeChatFriend.id });
     }
 }
 
@@ -335,7 +386,7 @@ fileInputEl.addEventListener('change', async (e) => {
     e.target.value = '';
 });
 
-// --- YENİ: Video Arama Mantığı ---
+// --- Video Arama Mantığı ---
 videoCallBtnEl.addEventListener('click', () => startVideoCall());
 modalCloseBtn.addEventListener('click', closeVideoCallModal);
 acceptCallBtnEl.addEventListener('click', acceptCall);
@@ -389,16 +440,21 @@ async function acceptCall() {
 }
 
 function createPeerConnection() {
-    const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }; // DÜZELTME: Eksik parantez
+    const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
     peerConnection = new RTCPeerConnection(configuration);
+    
     peerConnection.onicecandidate = event => {
-        socket.emit('ice-candidate', { candidate: event.candidate, to: isCaller ? activeChatFriend.id : window.currentCallerId });
+        if (event.candidate) {
+            socket.emit('ice-candidate', { candidate: event.candidate, to: isCaller ? activeChatFriend.id : window.currentCallerId });
+        }
     };
+    
     peerConnection.ontrack = event => {
         remoteStream = event.streams[0];
         remoteVideoEl.srcObject = remoteStream;
         callStatusEl.textContent = 'Görüşme aktif.';
     };
+    
     peerConnection.onconnectionstatechange = event => {
         if (event.target.connectionState === 'disconnected' || event.target.connectionState === 'failed') {
             console.log('WebRTC bağlantısı koptu.');
@@ -407,12 +463,20 @@ function createPeerConnection() {
     };
 }
 
+// Modal kapama tetikleyicisi için çoklu modal desteği (Arkadaş Modalıyla çakışmaması için)
+if (modalCloseBtn) {
+    modalCloseBtn.addEventListener('click', () => {
+        if (videoCallModal.style.display === 'flex') closeVideoCallModal();
+    });
+}
+
 function showVideoCallModal() {
     videoCallModal.style.display = 'flex';
     acceptCallBtnEl.style.display = isCaller ? 'none' : 'inline-block';
     endCallBtnEl.textContent = isCaller ? 'Aramayı Bitir' : 'Reddet';
 }
 
+// Detaylı modal kapatıcı
 function closeVideoCallModal() {
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
@@ -421,7 +485,7 @@ function closeVideoCallModal() {
         endCallBtnEl.textContent = 'Reddet';
     }
     if (remoteStream) {
-        remoteStream.getTracks().forEach(track => track.stop()); // DÜZELTME: Eksik parantez
+        remoteStream.getTracks().forEach(track => track.stop());
     }
     if (peerConnection) {
         peerConnection.close();
@@ -442,7 +506,13 @@ function endCall() {
 
 // --- FRIEND MANAGEMENT ---
 addFriendBtnEl.addEventListener('click', () => { addFriendModal.style.display = 'block'; });
-modalCloseBtn.addEventListener('click', () => { addFriendModal.style.display = 'none'; });
+
+// Arkadaş Ekleme Modalı Kapatma Butonu
+const addFriendModalCloseBtn = addFriendModal.querySelector('.close-btn');
+if (addFriendModalCloseBtn) {
+    addFriendModalCloseBtn.addEventListener('click', () => { addFriendModal.style.display = 'none'; });
+}
+
 sendFriendRequestBtnEl.addEventListener('click', () => {
     const friendUsername = friendUsernameInputEl.value.trim();
     if (friendUsername) {
@@ -481,13 +551,11 @@ profilePicInputEl.addEventListener('change', async (e) => {
 updateNicknameBtnEl.addEventListener('click', () => {
     const newNickname = settingsNicknameEl.value.trim();
     if (!newNickname) return;
-    // DÜZELTME: Hatalı metin doğru emit ile değiştirildi.
     socket.emit('update_profile', { type: 'nickname', value: newNickname });
 });
 updateDescriptionBtnEl.addEventListener('click', () => {
     const newDescription = settingsDescriptionEl.value.trim();
     if (!newDescription) return;
-    // DÜZELTME: Hatalı metin doğru emit ile değiştirildi.
     socket.emit('update_profile', { type: 'description', value: newDescription });
 });
 updatePasswordBtnEl.addEventListener('click', () => {
@@ -502,7 +570,6 @@ updatePasswordBtnEl.addEventListener('click', () => {
         showNotification('Yeni şifreler eşleşmiyor.', 'error');
         return;
     }
-    // DÜZELTME: Hatalı metin doğru emit ile değiştirildi.
     socket.emit('update_profile', { type: 'password', value: { oldPassword: oldPass, newPassword: newPass }});
     oldPasswordEl.value = '';
     newPasswordEl.value = '';
@@ -512,7 +579,6 @@ updatePasswordBtnEl.addEventListener('click', () => {
 // --- SOCKET.IO LISTENERS ---
 socket.on('connect', () => {
     console.log('Sunucuya bağlanıldı.');
-    // Bağlantı kurulunca, eğer kullanıcı varsa bilgilerini gönder
     if (authToken && currentUser) {
         socket.emit('authenticate', { token: authToken });
     }
@@ -520,84 +586,116 @@ socket.on('connect', () => {
 
 socket.on('authenticated', () => {
     console.log('Socket.io kimlik doğrulaması başarılı.');
-    // Arkadaş listesini yükle
     socket.emit('load_friend_list');
+    socket.emit('load_pending_requests'); // YENİ: Giriş yapıldığında bekleyen istekleri sunucudan çek
 });
 
 socket.on('load_friend_list', (friendList) => {
     renderFriendList(friendList);
 });
 
-socket.on('friend_request_received', (requesterInfo) => {
-    const accept = confirm(`${requesterInfo.nickname || requesterInfo.username} (${requesterInfo.username}) sizinle arkadaş olmak istiyor. Kabul ediyor musunuz?`);
-    socket.emit('respond_to_friend_request', { requesterId: requesterInfo.id, accept });
+// YENİ: Girişte toplu istek listesini yükleyen dinleyici
+socket.on('load_pending_requests', (requests) => {
+    renderPendingRequests(requests);
 });
 
-socket.on('new_message', (message) => {
+// GÜNCELLENDİ:confirm pencereli eski kod kaldırıldı, arayüze ekleyen yapıya çekildi.
+socket.on('friend_request_received', (requesterInfo) => {
+    addSingleRequestToUI(requesterInfo);
+    showNotification(`${requesterInfo.nickname || requesterInfo.username} size arkadaşlık isteği gönderdi!`, 'info');
+});
+
+// Bir mesaj durumuna (gönderildi/iletildi/okundu) göre tik span'ini günceller
+function applyMessageStatus(statusEl, msg) {
+    if (msg.isRead) {
+        statusEl.textContent = '✓✓';
+        statusEl.style.color = '#34B7F1'; // okundu -> mavi çift tik
+        statusEl.classList.add('read');
+    } else if (msg.delivered) {
+        statusEl.textContent = '✓✓';
+        statusEl.style.color = 'rgba(255, 255, 255, 0.75)'; // iletildi -> beyazımsı çift tik
+        statusEl.classList.remove('read');
+    } else {
+        statusEl.textContent = '✓';
+        statusEl.style.color = 'rgba(255, 255, 255, 0.75)'; // gönderildi -> beyazımsı tek tik
+        statusEl.classList.remove('read');
+    }
+}
+
+// Hem yeni mesaj hem geçmiş için ortak mesaj ögesi oluşturucu
+function buildMessageElement(msg) {
     const li = document.createElement('li');
-    if (message.type === 'file') {
-        if (message.content.match(/\.(jpeg|jpg|gif|png)$/i)) { // DÜZELTME: Eksik parantez
+    if (msg.id != null) li.dataset.messageId = msg.id;
+
+    if (msg.type === 'file') {
+        if (msg.content.match(/\.(jpeg|jpg|gif|png)$/i)) {
             const img = document.createElement('img');
-            img.src = message.content;
+            img.src = msg.content;
             img.alt = "Gönderilen resim";
             li.appendChild(img);
         } else {
             const a = document.createElement('a');
-            a.href = message.content;
+            a.href = msg.content;
             a.target = '_blank';
-            a.textContent = message.content.split('/').pop();
-            a.download = message.content.split('/').pop();
+            a.textContent = msg.content.split('/').pop();
+            a.download = msg.content.split('/').pop();
             li.appendChild(a);
         }
     } else {
-        // DÜZELTME: 'sonucu' yerine 'message.content' kullanıldı.
-        li.textContent = message.content;
+        const contentSpan = document.createElement('span');
+        contentSpan.className = 'msg-content';
+        contentSpan.textContent = msg.content;
+        li.appendChild(contentSpan);
     }
-    if (message.senderId === currentUser.id) {
+
+    if (msg.senderId === currentUser.id) {
         li.classList.add('sent');
+        const statusEl = document.createElement('span');
+        statusEl.className = 'msg-status';
+        statusEl.style.cssText = 'font-size: 11px; margin-left: 6px; vertical-align: bottom;';
+        applyMessageStatus(statusEl, msg);
+        li.appendChild(statusEl);
     } else {
         li.classList.add('received');
     }
+    return li;
+}
+
+socket.on('new_message', (message) => {
+    const li = buildMessageElement(message);
     messagesEl.appendChild(li);
     messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    // Bana gelen ve açık olan sohbete ait mesajı anında okundu olarak işaretle
+    if (message.senderId !== currentUser.id &&
+        activeChatFriend && message.senderId === activeChatFriend.id) {
+        // Mesaj geldiyse artık yazmıyor demektir, göstergeyi temizle
+        typingIndicatorEl.textContent = '';
+        socket.emit('mark_read', { friendId: activeChatFriend.id });
+    }
 });
 
 socket.on('chat_history', (messages) => {
     messagesEl.innerHTML = '';
-    if (messages.length === 0) {
-        return;
-    }
+    if (messages.length === 0) return;
     messages.forEach(msg => {
-        const li = document.createElement('li');
-        if (msg.type === 'file') {
-            if (msg.content.match(/\.(jpeg|jpg|gif|png)$/i)) { // DÜZELTME: Eksik parantez
-                const img = document.createElement('img');
-                img.src = msg.content;
-                img.alt = "Gönderilmiş resim"; // DÜZELTME: Yazım hatası
-                li.appendChild(img);
-            } else {
-                const a = document.createElement('a');
-                a.href = msg.content;
-                a.target = '_blank';
-                a.textContent = msg.content.split('/').pop();
-                a.download = msg.content.split('/').pop();
-                li.appendChild(a);
-            }
-        } else {
-            li.textContent = msg.content;
-        }
-        if (msg.senderId === currentUser.id) {
-            li.classList.add('sent');
-        } else {
-            li.classList.add('received');
-        }
-        messagesEl.appendChild(li);
+        messagesEl.appendChild(buildMessageElement(msg));
     });
     messagesEl.scrollTop = messagesEl.scrollHeight;
 });
 
+// Karşı taraf mesajlarımı okuduysa, açık sohbetteki gönderdiklerimi mavi tike çevir
+socket.on('messages_read', ({ byUserId }) => {
+    if (activeChatFriend && activeChatFriend.id === byUserId) {
+        document.querySelectorAll('#messages li.sent .msg-status').forEach(statusEl => {
+            statusEl.textContent = '✓✓';
+            statusEl.style.color = '#34B7F1';
+            statusEl.classList.add('read');
+        });
+    }
+});
+
 socket.on('friend_status_change', ({ userId, isOnline }) => {
-    // DÜZELTME: Selector'daki tırnak hatası düzeltildi.
     const friendElement = document.querySelector(`#friend-list li[data-user-id="${userId}"]`);
     if (friendElement) {
         const statusIndicator = friendElement.querySelector('.status-indicator');
@@ -621,14 +719,17 @@ socket.on('display_typing', ({ senderId, isTyping }) => {
     }
 });
 
-// --- YENİ: Video Arama Socket Dinleyicileri ---
+// --- Video Arama Socket Dinleyicileri ---
 socket.on('call-offer', async ({ offer, from }) => {
-    if (activeChatFriend && from === activeChatFriend.id) {
-        window.currentOffer = offer;
-        window.currentCallerId = from;
-        showVideoCallModal();
-        callStatusEl.textContent = `${friends.find(f => f.id === from)?.nickname || from} arıyor...`;
+    const callerFriend = friends.find(f => f.id === from);
+    if (callerFriend && (!activeChatFriend || activeChatFriend.id !== from)) {
+        startChat(callerFriend);
     }
+    
+    window.currentOffer = offer;
+    window.currentCallerId = from;
+    showVideoCallModal();
+    callStatusEl.textContent = `${callerFriend?.nickname || from} arıyor...`;
 });
 
 socket.on('call-answer', async ({ answer }) => {
@@ -639,8 +740,12 @@ socket.on('call-answer', async ({ answer }) => {
 });
 
 socket.on('ice-candidate', async ({ candidate }) => {
-    if (peerConnection) {
-        await peerConnection.addIceCandidate(candidate);
+    if (peerConnection && candidate) {
+        try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+            console.error("ICE Candidate eklenirken hata oluştu:", e);
+        }
     }
 });
 
@@ -667,14 +772,5 @@ socket.on('error', (message) => {
 
 // --- SAYFA YÜKLENDİĞİNDE YAPILACAKLAR ---
 document.addEventListener('DOMContentLoaded', async () => {
-    // Otomatik giriş kontrolü yap
-    const isLoggedIn = await checkAuthStatus();
-    if (isLoggedIn) {
-        // Eğer giriş yapılmışsa, socket.io bağlantısını kimlik doğrulaması için başlat
-        // connect() olayı zaten bunu handle edecek
-    }
+    await checkAuthStatus();
 });
-
-// --- AŞAĞIDAKİ KODLAR SUNUCU TARAFINDA OLMALI VE client.js DOSYASINDAN KALDIRILMALI ---
-// getUserInfo, getFriendList, server.listen gibi fonksiyonlar buraya ait değildir.
-// Bunları sunucu kodunuzda (örn: server.js veya index.js) tutmalısınız.
