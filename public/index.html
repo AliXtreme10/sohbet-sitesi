@@ -3,17 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerçek Zamanlı Sohbet Sitesi</title>
+    <title>✨ Modern Sohbet</title>
     <link rel="stylesheet" href="/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
 </head>
 <body>
     <div id="app-container">
+        <!-- Login View -->
         <div id="login-view" class="view active">
             <div class="form-container">
-                <h1>Giriş Yap</h1>
+                <h1>Hoş Geldiniz</h1>
                 <form id="login-form">
-                    <input type="text" id="login-username" placeholder="Kullanıcı Adı" required>
-                    <input type="password" id="login-password" placeholder="Şifre" required>
+                    <input type="text" id="login-username" placeholder="Kullanıcı Adı" required autocomplete="username">
+                    <input type="password" id="login-password" placeholder="Şifre" required autocomplete="current-password">
                     <div class="remember-me-container">
                         <input type="checkbox" id="remember-me" name="rememberMe" checked>
                         <label for="remember-me">Beni Hatırla</label>
@@ -24,25 +26,27 @@
             </div>
         </div>
 
+        <!-- Register View -->
         <div id="register-view" class="view">
             <div class="form-container">
                 <h1>Kayıt Ol</h1>
                 <form id="register-form">
-                    <input type="text" id="register-username" placeholder="Kincil Adı (Benzersiz)" required>
+                    <input type="text" id="register-username" placeholder="Kullanıcı Adı (Benzersiz)" required autocomplete="username">
                     <input type="text" id="register-nickname" placeholder="Takma Ad (Herkes görebilir)">
-                    <input type="password" id="register-password" placeholder="Şifre" required>
-                    <input type="password" id="register-password-confirm" placeholder="Şifre Tekrarı" required>
+                    <input type="password" id="register-password" placeholder="Şifre" required autocomplete="new-password">
+                    <input type="password" id="register-password-confirm" placeholder="Şifre Tekrarı" required autocomplete="new-password">
                     <button type="submit">Kayıt Ol</button>
                 </form>
                 <p>Zaten hesabınız var mı? <a href="#" id="show-login">Giriş Yap</a></p>
             </div>
         </div>
 
+        <!-- Chat View -->
         <div id="chat-view" class="view">
             <div id="sidebar">
                 <div id="user-profile">
                     <img id="my-profile-pic" src="" alt="Profil">
-                    <div>
+                    <div class="user-info">
                         <div id="my-nickname"></div>
                         <small id="my-username"></small>
                         <button id="logout-btn" class="logout-btn">Çıkış Yap</button>
@@ -50,27 +54,24 @@
                 </div>
                 <div id="sidebar-actions">
                     <button id="add-friend-btn">+ Arkadaş Ekle</button>
-                    <button id="profile-settings-btn">Profil Ayarları</button>
+                    <button id="profile-settings-btn">⚙️ Ayarlar</button>
                 </div>
 
-                <div id="pending-requests-section" style="margin-bottom: 15px;">
-                    <h3>Gelen İstekler</h3>
-                    <ul id="pending-requests-list" style="list-style: none; padding: 0; margin: 0;">
-                        </ul>
+                <div id="pending-requests-section">
+                    <h3>🔔 Gelen İstekler</h3>
+                    <ul id="pending-requests-list"></ul>
                 </div>
 
-                <h3>Arkadaşlarım</h3>
-                <ul id="friend-list">
-                    </ul>
+                <h3>💬 Arkadaşlarım</h3>
+                <ul id="friend-list"></ul>
             </div>
             <div id="main-content">
                 <div id="chat-header">
-                    <span id="active-chat-name">Sohbet etmek için bir friend seçin.</span>
+                    <span id="active-chat-name">Sohbet etmek için bir arkadaş seçin</span>
                     <span id="typing-indicator"></span>
                 </div>
                 <div id="chat-window">
-                    <ul id="messages">
-                        </ul>
+                    <ul id="messages"></ul>
                 </div>
                 <div id="chat-input-container">
                     <button id="attach-file-btn" title="Dosya Ekle">📎</button>
@@ -82,47 +83,51 @@
             </div>
         </div>
 
+        <!-- Profile Settings View -->
         <div id="profile-settings-view" class="view">
             <div class="form-container settings-container">
                 <h1>Profil Ayarları</h1>
                 <div class="settings-section">
-                    <h3>Profil Fotoğrafı</h3>
+                    <h3>📸 Profil Fotoğrafı</h3>
                     <img id="settings-profile-pic" src="" alt="Profil Fotoğrafı">
                     <input type="file" id="profile-pic-input" accept="image/*">
                 </div>
                 <div class="settings-section">
-                    <h3>Takma Ad</h3>
-                    <input type="text" id="settings-nickname">
+                    <h3>✏️ Takma Ad</h3>
+                    <input type="text" id="settings-nickname" placeholder="Takma adınızı girin">
                     <button id="update-nickname-btn">Güncelle</button>
                 </div>
                 <div class="settings-section">
-                    <h3>Açıklama</h3>
-                    <textarea id="settings-description" rows="3"></textarea>
+                    <h3>📝 Açıklama</h3>
+                    <textarea id="settings-description" rows="3" placeholder="Kendinizi kısaca tanıtın"></textarea>
                     <button id="update-description-btn">Güncelle</button>
                 </div>
                 <div class="settings-section">
-                    <h3>Şifre Değiştir</h3>
+                    <h3>🔒 Şifre Değiştir</h3>
                     <input type="password" id="old-password" placeholder="Eski Şifre">
                     <input type="password" id="new-password" placeholder="Yeni Şifre">
                     <input type="password" id="new-password-confirm" placeholder="Yeni Şifre Tekrarı">
                     <button id="update-password-btn">Şifreyi Değiştir</button>
                 </div>
-                <button id="back-to-chat-btn" class="back-button">Sohbete Geri Dön</button>
+                <button id="back-to-chat-btn" class="back-button">← Sohbete Geri Dön</button>
             </div>
         </div>
     </div>
 
+    <!-- Notification Box -->
     <div id="notification-box"></div>
 
+    <!-- Add Friend Modal -->
     <div id="add-friend-modal" class="modal">
         <div class="modal-content">
             <span class="close-btn">&times;</span>
-            <h2>Arkadaş Ekle</h2>
-            <input type="text" id="friend-username-input" placeholder="Eklemek istediğiniz kullanıcının adı">
+            <h2>👥 Arkadaş Ekle</h2>
+            <input type="text" id="friend-username-input" placeholder="Eklemek istediğiniz kullanıcı adı">
             <button id="send-friend-request-btn">İstek Gönder</button>
         </div>
     </div>
 
+    <!-- Video Call Modal -->
     <div id="video-call-modal" class="modal">
         <div class="modal-content video-modal-content">
             <span class="close-btn">&times;</span>
@@ -133,8 +138,8 @@
             <div class="call-controls">
                 <h3 id="call-status">Bağlanıyor...</h3>
                 <div class="call-buttons">
-                    <button id="accept-call-btn" class="call-btn accept-btn">Kabul Et</button>
-                    <button id="end-call-btn" class="call-btn end-btn">Reddet / Bitir</button>
+                    <button id="accept-call-btn" class="call-btn accept-btn">📞 Kabul Et</button>
+                    <button id="end-call-btn" class="call-btn end-btn">❌ Kapat</button>
                 </div>
             </div>
         </div>
