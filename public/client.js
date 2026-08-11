@@ -1,7 +1,11 @@
-// public/client.js - Modernize Edilmiş
+// public/client.js - Mobil Uyumlu Modern Sohbet
 
 // --- Socket.IO BAĞLANTISI ---
 const socket = io();
+
+// --- MOBİL DEĞİŞKENLER ---
+let isMobile = window.innerWidth <= 768;
+let sidebarVisible = true;
 
 // --- DOM ELEMENTLERİ ---
 const views = {
@@ -72,6 +76,81 @@ let currentUser = null;
 let authToken = null;
 let activeChatFriend = null;
 let friends = [];
+
+// ============================================
+// MOBİL YARDIMCI FONKSİYONLAR
+// ============================================
+
+function checkMobile() {
+    isMobile = window.innerWidth <= 768;
+    const sidebar = document.getElementById('sidebar');
+    const mainContent = document.getElementById('main-content');
+    
+    if (!sidebar || !mainContent) return;
+    
+    if (!isMobile) {
+        sidebar.classList.remove('hidden');
+        sidebarVisible = true;
+        removeMobileBackButton();
+    } else {
+        if (activeChatFriend) {
+            sidebar.classList.add('hidden');
+            sidebarVisible = false;
+            addMobileBackButton();
+        } else {
+            sidebar.classList.remove('hidden');
+            sidebarVisible = true;
+            removeMobileBackButton();
+        }
+    }
+}
+
+function addMobileBackButton() {
+    if (!isMobile) return;
+    
+    const chatHeader = document.getElementById('chat-header');
+    const existingBackBtn = chatHeader.querySelector('.back-to-friends-btn');
+    
+    if (!existingBackBtn && activeChatFriend) {
+        const backBtn = document.createElement('button');
+        backBtn.className = 'back-to-friends-btn';
+        backBtn.innerHTML = '←';
+        backBtn.title = 'Arkadaşlara Dön';
+        backBtn.addEventListener('click', showSidebar);
+        chatHeader.prepend(backBtn);
+    }
+}
+
+function removeMobileBackButton() {
+    const chatHeader = document.getElementById('chat-header');
+    const existingBackBtn = chatHeader.querySelector('.back-to-friends-btn');
+    if (existingBackBtn) {
+        existingBackBtn.remove();
+    }
+}
+
+function showSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.remove('hidden');
+    sidebarVisible = true;
+    activeChatFriend = null;
+    updateChatUI();
+    removeMobileBackButton();
+}
+
+function updateChatUI() {
+    if (!activeChatFriend) {
+        activeChatNameEl.textContent = 'Sohbet etmek için bir arkadaş seçin';
+        messageInputEl.disabled = true;
+        sendMessageBtnEl.disabled = true;
+        videoCallBtnEl.disabled = true;
+        if (messagesEl) messagesEl.innerHTML = '';
+        if (typingIndicatorEl) typingIndicatorEl.textContent = '';
+    }
+}
+
+// Pencere boyutu değişince
+window.addEventListener('resize', checkMobile);
 
 // --- YARDIMCI FONKSİYONLAR ---
 function showView(viewName) {
@@ -346,6 +425,14 @@ function startChat(friend) {
     messagesEl.innerHTML = '';
     typingIndicatorEl.textContent = '';
     socket.emit('request_chat_history', { friendId: friend.id });
+    
+    // Mobil: Sidebar'ı gizle, geri butonu ekle
+    if (isMobile) {
+        const sidebar = document.getElementById('sidebar');
+        sidebar.classList.add('hidden');
+        sidebarVisible = false;
+        addMobileBackButton();
+    }
 }
 
 sendMessageBtnEl.addEventListener('click', sendMessage);
@@ -760,6 +847,7 @@ socket.on('error', (message) => {
 // --- SAYFA YÜKLENDİ ---
 document.addEventListener('DOMContentLoaded', async () => {
     await checkAuthStatus();
+    checkMobile();
 });
 
 // Modal dışına tıklayınca kapatma
