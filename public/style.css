@@ -1,5 +1,5 @@
 /* ============================================
-   MODERN CHAT - Yenilenmiş Stil Dosyası
+   MODERN CHAT - Mobil Uyumlu Stil Dosyası
    ============================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
@@ -1043,28 +1043,268 @@ body {
     background: transparent;
 }
 
-/* ============ RESPONSIVE TASARIM ============ */
+/* ============================================
+   MOBİL WHATSAPP STİLİ - TAM EKRAN
+   ============================================ */
 @media (max-width: 768px) {
     body {
         padding: 0;
     }
-    
+
     #app-container {
         height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+        max-width: 100%;
+    }
+
+    #chat-view {
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Sidebar Mobil */
+    #sidebar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 10;
+        background: white;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transform: translateX(0);
+    }
+
+    #sidebar.hidden {
+        transform: translateX(-100%);
+    }
+
+    /* Main Content Mobil */
+    #main-content {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 5;
+        background: #f9fafb;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Mobil Sohbet Başlığı */
+    #chat-header {
+        padding: 12px 16px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-bottom: none;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        min-height: 56px;
+    }
+
+    .back-to-friends-btn {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        background: rgba(255,255,255,0.2);
+        border: none;
+        border-radius: 50%;
+        color: white;
+        font-size: 18px;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: background 0.2s;
+    }
+
+    .back-to-friends-btn:active {
+        background: rgba(255,255,255,0.4);
+    }
+
+    #chat-header #active-chat-name {
+        color: white;
+        font-size: 16px;
+        font-weight: 600;
+        flex: 1;
+    }
+
+    #chat-header #typing-indicator {
+        color: rgba(255,255,255,0.9);
+        font-size: 12px;
+    }
+
+    /* Mobil Sohbet Penceresi */
+    #chat-window {
+        padding: 12px;
+        background: #e5ddd5;
+        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d4cfc6' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+
+    #chat-window::-webkit-scrollbar {
+        width: 0;
+    }
+
+    /* Mobil Mesaj Balonları */
+    #messages li {
+        max-width: 80%;
+        font-size: 15px;
+        padding: 8px 12px;
+        margin-bottom: 4px;
+        line-height: 1.4;
+        border-radius: 8px;
+        position: relative;
+        box-shadow: 0 1px 1px rgba(0,0,0,0.08);
+    }
+
+    #messages li.sent {
+        background: #dcf8c6;
+        color: #303030;
+        align-self: flex-end;
+        border-top-right-radius: 0;
+    }
+
+    #messages li.received {
+        background: white;
+        color: #303030;
+        align-self: flex-start;
+        border-top-left-radius: 0;
+    }
+
+    .msg-status {
+        font-size: 11px;
+        color: rgba(48, 48, 48, 0.45);
+    }
+
+    /* Mobil Input Alanı */
+    #chat-input-container {
+        padding: 8px 12px;
+        background: #f0f0f0;
+        gap: 8px;
+        align-items: center;
+        border-top: 1px solid #ddd;
+        min-height: 56px;
+    }
+
+    #attach-file-btn,
+    #video-call-btn {
+        font-size: 22px;
+        padding: 8px;
+        color: #666;
+    }
+
+    #message-input {
+        border: none;
+        border-radius: 24px;
+        padding: 10px 16px;
+        font-size: 15px;
+        background: white;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    #send-message-btn {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #25d366;
+        font-size: 18px;
+        box-shadow: 0 2px 4px rgba(37, 211, 102, 0.3);
+    }
+
+    #send-message-btn:disabled {
+        background: #ccc;
+        box-shadow: none;
+    }
+
+    /* Mobil Sidebar İçeriği */
+    #sidebar #user-profile {
+        padding: 16px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-bottom: none;
+    }
+
+    #sidebar #user-profile #my-nickname {
+        color: white;
+    }
+
+    #sidebar #user-profile #my-username {
+        color: rgba(255,255,255,0.8);
+    }
+
+    #sidebar .logout-btn {
+        background: rgba(255,255,255,0.2);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    #sidebar .logout-btn:hover {
+        background: rgba(255,255,255,0.3);
+    }
+
+    /* Mobil Formlar */
+    .form-container {
+        margin: 0;
+        border-radius: 0;
+        max-width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 32px 24px;
+    }
+
+    .settings-container {
+        justify-content: flex-start;
+        overflow-y: auto;
+    }
+
+    /* Mobil Modallar */
+    .modal-content {
+        margin: 20% auto;
+        width: 90%;
+        max-width: 360px;
+        border-radius: 16px;
+        padding: 24px;
+    }
+
+    .video-modal-content {
+        width: 100%;
+        height: 100vh;
+        max-height: 100vh;
+        margin: 0;
         border-radius: 0;
     }
-    
-    #sidebar {
-        width: 100%;
-        max-width: 300px;
+
+    /* Mobil Arkadaş Listesi */
+    #friend-list::-webkit-scrollbar {
+        width: 2px;
     }
-    
-    .form-container {
-        padding: 32px 24px;
-        margin: 16px;
-    }
-    
+}
+
+/* ============================================
+   KÜÇÜK MOBİL CİHAZLAR
+   ============================================ */
+@media (max-width: 380px) {
     #messages li {
         max-width: 85%;
+        font-size: 14px;
+    }
+
+    #chat-input-container {
+        padding: 6px 8px;
+        gap: 6px;
+    }
+
+    #message-input {
+        font-size: 14px;
     }
 }
